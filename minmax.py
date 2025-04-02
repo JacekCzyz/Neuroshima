@@ -102,7 +102,7 @@ def perform_min_max(hex_map, choice, current_player, player1hp, player2hp, depth
                 beta = min(beta, best_value)
         
         if beta <= alpha:
-            break  # Alpha-Beta Pruning
+            break
     return best_move if best_move else (possible_moves[0] if possible_moves else None)
 
 
@@ -114,13 +114,10 @@ def find_cur_values(hex_map, player, choice, player1hp, player2hp):
     
     choice_player = choice[player]
     choice_len = len(choice_player)
-    free_hexes_len = len(hex_map.free_hexes)
-
-    # Use a shallow copy of hex_map to avoid expensive deep copies
-    initial_map = copy.copy(hex_map)  
-
+    
+    initial_map = hex_map.set_mockup_map()
     for i, ihex in enumerate(choice_player):
-        first_map = initial_map.set_mockup_map()  # Shallow copy instead of deepcopy
+        first_map = copy.copy(initial_map)
 
         if ihex.skin.team == 3:
             player1hp, player2hp = map_utils.battle(first_map, player1hp, player2hp)
@@ -140,13 +137,12 @@ def find_cur_values(hex_map, player, choice, player1hp, player2hp):
                 if k == move.choice_indexes[0]:
                     continue
 
-                first_map = initial_map.set_mockup_map()  # Shallow copy
+                first_map = initial_map.set_mockup_map()
                 hex = choice_player[move.choice_indexes[0]]
 
                 if hex.skin.team == 3:
                     player1hp, player2hp = map_utils.battle(first_map, player1hp, player2hp)
                 else:
-                    # Temporarily modify in place and revert later
                     temp_skin = first_map.free_hexes[move.free_index[0]].skin
                     first_map.free_hexes[move.free_index[0]].skin = tile(
                         hex.skin.color, hex.skin.close_attack, hex.skin.ranged_attack,
@@ -155,7 +151,7 @@ def find_cur_values(hex_map, player, choice, player1hp, player2hp):
                     first_map.taken_hexes.append(first_map.free_hexes.pop(move.free_index[0]))
 
                 if khex.skin.team == 3:
-                    second_map = copy.copy(first_map)  # Shallow copy
+                    second_map = copy.copy(first_map)
                     player1hp, player2hp = map_utils.battle(second_map, player1hp, player2hp)
                     second_moves.append(MoveValue(
                         [move.choice_indexes[0], k], [move.qs[0], 1110],
@@ -164,13 +160,12 @@ def find_cur_values(hex_map, player, choice, player1hp, player2hp):
                     ))
                 else:                
                     for l in range(len(first_map.free_hexes)):
-                        second_map = first_map.set_mockup_map()#copy.copy(initial_map)
+                        second_map = copy.copy(first_map)
                         khex_move = calc_moves(second_map, khex, l, player)
                         if khex_move:
                             second_moves.append(MoveValue([move.choice_indexes[0],k], [move.qs[0],khex_move[0]], [move.rs[0],khex_move[1]], [move.rotations[0],khex_move[2]], [move.free_index[0], l], khex_move[3]))
 
                 if hex.skin.team != 3:
-                    # Revert temporary modifications instead of deep copy
                     first_map.free_hexes.insert(move.free_index[0], first_map.taken_hexes.pop())
                     first_map.free_hexes[move.free_index[0]].skin = temp_skin  
 
@@ -218,8 +213,9 @@ def make_final_move(hex_map, move_val, choice, player, player1hp, player2hp):
                     hex_map.taken_hexes.append(hex)
                     hex_map.free_hexes.pop(j)                            
                     break
-    choice[player].pop(max(move_val.choice_indexes))
     if len(move_val.choice_indexes)>1:
-        choice[player].pop(min(move_val.choice_indexes))
-    
+        choice[player].clear()
+    else:
+        choice[player].pop(max(move_val.choice_indexes))
+
     return player1hp, player2hp
