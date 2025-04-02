@@ -111,7 +111,6 @@ def draw_hex(screen, hex, chosen):
     text_rect = text.get_rect(center=(center_x, center_y - 10 + line_spacing))
     screen.blit(text, text_rect) 
 
-    # Precompute repeated values
     sqrt3_2 = math.sqrt(3) / 2
     side_centers = [
         ((hex.points[4][0] + hex.points[3][0]) / 2, (hex.points[4][1] + hex.points[3][1]) / 2),  # Mid-right (0)

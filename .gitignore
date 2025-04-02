@@ -1,0 +1,30 @@
+# Ignore all compiled Python files
+*.pyc
+*.pyo
+__pycache__/
+
+# Windows system files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Windows thumbnail cache
+*.db
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Virtual environments
+venv/
+.env/
+
+# IDE and editor files
+.vscode/
+*.code-workspace
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
