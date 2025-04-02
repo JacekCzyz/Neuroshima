@@ -1,0 +1,34 @@
+#attack directions-> 0=mid-right, 1=top-right, 2=top-left, 3=mid-left, 4=bot-left, 5=bot-right
+class tile:
+    def __init__(self, color, close_attack, ranged_attack, team, initiative, lives, hq):
+        self.color = color
+        self.close_attack = close_attack
+        self.ranged_attack = ranged_attack
+        self.team=team
+        self.initiative = initiative
+        self.lives = lives
+        self.hq = hq
+        
+    def rotate(self,direction):
+        for i in range(len(self.close_attack)):
+            self.close_attack[i]+=direction
+            if self.close_attack[i]==-1:
+                self.close_attack[i]=5
+            elif self.close_attack[i]==6:
+                self.close_attack[i]=0
+                    
+        for i in range(len(self.ranged_attack)):
+            self.ranged_attack[i]+=direction
+            if self.ranged_attack[i]==-1:
+                self.ranged_attack[i]=5
+            elif self.ranged_attack[i]==6:
+                self.ranged_attack[i]=0         
+                    
+                    
+default_skin = tile((255, 255, 255), [], [], 0, None, None, False)                              
+team1_color=(255,0,0)
+team2_color=(0,255,0)       
+teams_hq = [tile(team1_color, [0,1,2,3,4,5], [], 1, [0], 20, True), tile(team2_color, [0,1,2,3,4,5], [], 2, [0], 20, True)]
+team_tiles=[
+    [tile(team1_color, [], [], 3, [0], 0, False),tile(team1_color, [], [], 3, [0], 0, False),tile(team1_color, [], [], 3, [0], 0, False),tile(team1_color, [], [], 1, [0], 3, False),tile(team1_color, [], [], 1, [0], 3, False),tile(team1_color, [], [], 1, [0], 3, False),tile(team1_color, [], [3], 1, [3], 1, False),tile(team1_color, [], [3], 1, [3], 1, False),tile(team1_color, [], [3], 1, [3], 1, False),tile(team1_color, [1,1], [0], 1, [1], 2, False),tile(team1_color, [1,1], [0], 1, [1], 2, False),tile(team1_color, [1,2,3,5], [], 1, [1], 1, False),tile(team1_color, [1,2,3,5], [], 1, [1], 1, False),tile(team1_color, [1,2,3,5], [], 1, [1], 1, False),tile(team1_color, [], [1,2,3], 1, [1], 2, False),tile(team1_color, [], [1,2,3], 1, [1], 2, False),tile(team1_color, [0,1,2,3,4,5], [], 1, [2], 1, False),tile(team1_color, [0,1,2,3,4,5], [], 1, [2], 1, False),tile(team1_color, [0,1,2,3,4,5], [], 1, [2], 1, False),tile(team1_color, [], [0,2], 1, [2], 1, False),tile(team1_color, [], [0,2], 1, [2], 1, False),tile(team1_color, [], [1,2], 1, [2], 1, False),tile(team1_color, [], [1,2], 1, [2], 1, False),tile(team1_color, [1,2], [], 1, [2], 2, False),tile(team1_color, [1,2], [], 1, [2], 2, False), tile(team1_color, [1,1], [], 1, [2],1, False), tile(team1_color, [1,1], [], 1, [2], 1, False), tile(team1_color, [], [1], 1, [2,1], 2, False), tile(team1_color, [], [1], 1, [2,1], 2, False), ],
+    [tile(team2_color, [], [], 3, [0], 0, False),tile(team2_color, [], [], 3, [0], 0, False),tile(team2_color, [], [], 3, [0], 0, False),tile(team2_color, [], [], 3, [0], 0, False),tile(team2_color, [], [], 3, [0], 0, False),tile(team2_color, [3], [2], 2, [2], 1, False),tile(team2_color, [3], [2], 2, [2], 1, False),tile(team2_color, [3], [2], 2, [2], 1, False),tile(team2_color, [3], [2], 2, [2], 1, False),tile(team2_color, [3], [2], 2, [2], 1, False),tile(team2_color, [3], [2], 2, [2], 1, False),tile(team2_color, [1,2,2,3], [], 2, [2], 1, False),tile(team2_color, [1,2,2,3], [], 2, [2], 1, False),tile(team2_color, [1], [], 2, [3], 1, False),tile(team2_color, [1], [], 2, [3], 1, False),tile(team2_color, [1], [], 2, [3], 1, False),tile(team2_color, [1], [], 2, [3], 1, False),tile(team2_color, [1], [], 2, [3], 1, False),tile(team2_color, [1], [], 2, [3], 1, False),tile(team2_color, [1,1,2,2,3,3], [], 2, [1], 2, False),tile(team2_color, [1,1,2,2,3,3], [], 2, [1], 2, False),tile(team2_color, [1,2,3], [], 2, [2], 2, False),tile(team2_color, [1,2,3], [], 2, [2], 2, False),tile(team2_color, [2], [2], 2, [3], 1, False),tile(team2_color, [2], [2], 2, [3], 1, False),tile(team2_color, [2], [2], 2, [3], 1, False),tile(team2_color, [2], [2], 2, [3], 1, False),tile(team2_color, [2], [2], 2, [3], 1, False),tile(team2_color, [2], [1,3], 2, [2], 1, False),tile(team2_color, [2], [1,3], 2, [2], 1, False),tile(team2_color, [2], [1,3], 2, [2], 1, False),tile(team2_color, [2], [1,3], 2, [2], 1, False)]]
