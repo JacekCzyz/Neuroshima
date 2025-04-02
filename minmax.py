@@ -143,12 +143,13 @@ def find_cur_values(hex_map, player, choice, player1hp, player2hp):
                 if hex.skin.team == 3:
                     player1hp, player2hp = map_utils.battle(first_map, player1hp, player2hp)
                 else:
-                    temp_skin = first_map.free_hexes[move.free_index[0]].skin
-                    first_map.free_hexes[move.free_index[0]].skin = tile(
-                        hex.skin.color, hex.skin.close_attack, hex.skin.ranged_attack,
-                        hex.skin.team, hex.skin.initiative, hex.skin.lives, hex.skin.hq
-                    )
-                    first_map.taken_hexes.append(first_map.free_hexes.pop(move.free_index[0]))
+                    if move.choice_indexes[0]<k:
+                        temp_skin = first_map.free_hexes[move.free_index[0]].skin
+                        first_map.free_hexes[move.free_index[0]].skin = tile(
+                            hex.skin.color, hex.skin.close_attack, hex.skin.ranged_attack,
+                            hex.skin.team, hex.skin.initiative, hex.skin.lives, hex.skin.hq
+                        )
+                        first_map.taken_hexes.append(first_map.free_hexes.pop(move.free_index[0]))
 
                 if khex.skin.team == 3:
                     second_map = copy.copy(first_map)
@@ -165,7 +166,7 @@ def find_cur_values(hex_map, player, choice, player1hp, player2hp):
                         if khex_move:
                             second_moves.append(MoveValue([move.choice_indexes[0],k], [move.qs[0],khex_move[0]], [move.rs[0],khex_move[1]], [move.rotations[0],khex_move[2]], [move.free_index[0], l], khex_move[3]))
 
-                if hex.skin.team != 3:
+                if hex.skin.team != 3 and move.choice_indexes[0]<k:
                     first_map.free_hexes.insert(move.free_index[0], first_map.taken_hexes.pop())
                     first_map.free_hexes[move.free_index[0]].skin = temp_skin  
 
