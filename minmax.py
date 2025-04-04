@@ -106,8 +106,6 @@ def perform_min_max(hex_map, choice, current_player, player1hp, player2hp, depth
     return best_move if best_move else (possible_moves[0] if possible_moves else None)
 
 
-import copy
-
 def find_cur_values(hex_map, player, choice, player1hp, player2hp):
     first_moves = []
     second_moves = []
@@ -179,8 +177,16 @@ def calc_moves(hex_map, hex, free_index, player):
     best_value = float('-inf') if player == 1 else float('inf')
     best_move=None
     for i in range(6):
-        hex_map.free_hexes[free_index].skin = tile(hex.skin.color, hex.skin.close_attack, hex.skin.ranged_attack,
-                                hex.skin.team, hex.skin.initiative, hex.skin.lives, hex.skin.hq)
+        hex_map.free_hexes[free_index].skin = tile(
+            color=hex.skin.color.tolist(),
+            close_attack=hex.skin.close_attack.tolist(),
+            ranged_attack=hex.skin.ranged_attack.tolist(),
+            team=hex.skin.team,
+            initiative=hex.skin.initiative.tolist(),
+            lives=hex.skin.lives,
+            hq=hex.skin.hq
+        )
+
         hex_map.taken_hexes.append(hex_map.free_hexes[free_index])
         hex_map.free_hexes.pop(free_index)
         

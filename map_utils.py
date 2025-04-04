@@ -1,20 +1,25 @@
-import skins
-from hex import hexagon
 import pygame
 import math
 import random
-import copy
+import numpy as np
+import skins
+from hex import hexagon
 
-AXIAL_OFFSETS = [
+# Constants
+choice_xses = [100, 200, 300]
+AXIAL_OFFSETS = np.array([
     [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, 0), (1, 1)],  # Row 0
     [(0, 1), (-1, 0), (-1, -1), (0, -1), (1, 0), (1, 1)],  # Row 1
     [(0, 1), (-1, 0), (-1, -1), (0, -1), (1, -1), (1, 0)],  # Row 2
     [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1), (1, 0)],  # Row 3
-    [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, 0), (1, 1)],  # Row 4
-]
+    [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, 0), (1, 1)],
+])
 
 def get_axial_offset(direction, row):
-    return AXIAL_OFFSETS[row][direction] if 0 <= row < len(AXIAL_OFFSETS) else (0, 0)
+    return AXIAL_OFFSETS[row, direction] if 0 <= row < AXIAL_OFFSETS.shape[0] else (0, 0)
+
+def find_hex(hex_map, q, r):
+    return next((hex for row in hex_map.hex_row_list for hex in row.hex_list if hex.q == q and hex.r == r), None)
 
 def find_neighbor_in_line(hex_map, q, r, direction, row):
     neighbors = []
@@ -70,20 +75,9 @@ def get_neighbors(hex_map, q, r):
                 neighbors.append(neighbor_close)
     return neighbors
 
-def find_hex(hex_map, q, r):
-    for row in hex_map.hex_row_list:
-        for hex in row.hex_list:
-            if hex.q == q and hex.r == r:
-                return hex
-    return None
 
 def find_highest_init(hex_map):
-    highest_init=0
-    for row in hex_map.hex_row_list:
-        for hex in row.hex_list:
-            if hex.skin.initiative and max(hex.skin.initiative)>highest_init:
-                highest_init=max(hex.skin.initiative)
-    return highest_init
+    return max((max(hex.skin.initiative) for row in hex_map.hex_row_list for hex in row.hex_list if hex.skin.initiative.size > 0), default=0)
 
 def draw_map(screen, hex_map):
     for row in hex_map.hex_row_list:
@@ -91,7 +85,7 @@ def draw_map(screen, hex_map):
             draw_hex(screen, hex, False)
 
 def draw_hex(screen, hex, chosen):
-    pygame.draw.polygon(screen, hex.skin.color, hex.points)
+    pygame.draw.polygon(screen, hex.skin.color.tolist(), hex.points)
     pygame.draw.polygon(screen, (0, 0, 255) if chosen else (0, 0, 0), hex.points, 2)
 
     center_x = sum(p[0] for p in hex.points) / 6
@@ -101,8 +95,8 @@ def draw_hex(screen, hex, chosen):
     row_spacing = 10  
     line_spacing = 20  
 
-    if hex.skin.initiative is not None:
-        for i, initiative in enumerate(hex.skin.initiative):
+    if hex.skin.initiative.size > 0:
+        for i, initiative in enumerate(hex.skin.initiative.tolist()):  
             text = font.render(str(initiative), True, (255, 255, 255))
             text_rect = text.get_rect(center=(center_x + i * row_spacing, center_y - 10))
             screen.blit(text, text_rect)
@@ -134,8 +128,8 @@ def draw_hex(screen, hex, chosen):
     lateral_shift = 6
 
     for direction in range(6):
-        ranged_count = hex.skin.ranged_attack.count(direction)
-        close_count = hex.skin.close_attack.count(direction)
+        ranged_count = (hex.skin.ranged_attack == direction).sum()
+        close_count = (hex.skin.close_attack == direction).sum()
         
         base_position = (
             side_centers[direction][0] - side_normals[direction][0] * offset_factor,
@@ -159,67 +153,68 @@ def draw_hex(screen, hex, chosen):
             )
             draw_dot(screen, offset_position)
 
-def draw_triangle(screen, position):
-    size = 8 
-    x, y = position
+def draw_triangle(screen, pos):
+    size = 8
+    x, y = pos
     height = math.sqrt(3) / 2 * size
-    
-    p1 = (x, y - height / 2)
-    p2 = (x - size / 2, y + height / 2)
-    p3 = (x + size / 2, y + height / 2)
-    
-    pygame.draw.polygon(screen, (0, 0, 0), [p1, p2, p3])
+    points = [(x, y - height / 2), (x - size / 2, y + height / 2), (x + size / 2, y + height / 2)]
+    pygame.draw.polygon(screen, (0, 0, 0), points)
 
-def draw_dot(screen, position):
-    pygame.draw.circle(screen, (0, 0, 0), (int(position[0]), int(position[1])), 4)
+def draw_dot(screen, pos):
+    pygame.draw.circle(screen, (0, 0, 0), (int(pos[0]), int(pos[1])), 4)
 
-
-choice_xses = [100,200,300]
 def fill_choice(choice, current_player, first_turn, fake_fill):
+    team_tiles = skins.team_tiles[current_player]
+
+    # Ensure choice[current_player] is treated as a Python list
+    choice[current_player] = list(choice[current_player])
+
     if first_turn:
         choice[current_player].append(hexagon(200, 500, 50, 10, 10, skins.teams_hq[current_player]))
     else:
-        if not fake_fill:
-            missing_xses=[]
-            for xs in choice_xses:
-                found=False
-                for hex in choice[current_player]:
-                    if hex.points[0][0]==xs:
-                        found=True
-                        break
-                if not found:
-                    missing_xses.append(xs)
-            for xs in missing_xses:
-                if len(skins.team_tiles[current_player])==0:
-                    break
-                elif len(skins.team_tiles[current_player])==1:
-                    rand_index=0
-                else:
-                    rand_index = random.randint(0,len(skins.team_tiles[current_player])-1)
-                choice[current_player].append(hexagon(xs, 500, 50, 10, 10, skins.team_tiles[current_player][rand_index]))
-                skins.team_tiles[current_player].pop(rand_index)
-        else:
-            missing_xses=[]
-            tiles = copy.deepcopy(skins.team_tiles[current_player])
-            for xs in choice_xses:
-                found=False
-                for hex in choice[current_player]:
-                    if hex.points[0][0]==xs:
-                        found=True
-                        break
-                if not found:
-                    missing_xses.append(xs)
-            for xs in missing_xses:
-                if len(tiles)==0:
-                    break
-                elif len(tiles)==1:
-                    rand_index=0
-                else:
-                    rand_index = random.randint(0,len(tiles)-1)
-                choice[current_player].append(hexagon(xs, 500, 50, 10, 10, tiles[rand_index]))
-                tiles.pop(rand_index)
-            
-            
+        xs_needed = [xs for xs in choice_xses if all(hex.points[0][0] != xs for hex in choice[current_player])]
+        source_tiles = team_tiles.tolist() if fake_fill else list(team_tiles)
+
+        for xs in xs_needed:
+            if not source_tiles:
+                break
+            idx = random.randint(0, len(source_tiles) - 1)
+            tile = source_tiles[idx]
+            choice[current_player].append(hexagon(xs, 500, 50, 10, 10, tile))
+
+            if not fake_fill:
+                skins.team_tiles[current_player] = np.delete(team_tiles, idx)
+            else:
+                del source_tiles[idx]
+
+    # Convert back to NumPy object array if necessary
+    choice[current_player] = np.array(choice[current_player], dtype=object)
+    if current_player==0:
+        choice = np.array([choice[current_player], []], dtype=object)
+    else:
+        choice = np.array([[], choice[current_player]], dtype=object)        
+    return choice
+
+# def battle(hex_map, hp1, hp2):
+#     for i in range(find_highest_init(hex_map), -1, -1):
+#         for hex in hex_map.taken_hexes:
+#             if i not in hex.skin.initiative:
+#                 continue
+#             for target in get_neighbors(hex_map, hex.q, hex.r) + get_neighbor_lines(hex_map, hex.q, hex.r):
+#                 if target is None:
+#                     if target.skin.lives is not None:
+#                         target.skin.lives -= 1
+#                         if target.skin.hq:
+#                             if target.skin.team == 1:
+#                                 hp1 -= 1
+#                             else:
+#                                 hp2 -= 1
+#                         if target.skin.lives == 0:
+#                             hex_map.taken_hexes.remove(target)
+#                             hex_map.free_hexes.append(target)
+#                             target.skin = skins.default_skin
+#     return hp1, hp2
+
 def battle(hex_map, player1hp, player2hp):
     init = find_highest_init(hex_map)
     for i in range(init, -1, -1):
