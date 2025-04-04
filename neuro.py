@@ -32,12 +32,13 @@ while not done:
     clock.tick(90)
 
     if not turn_started:
+        choice = np.array(choice)
         choice = map_utils.fill_choice(choice.tolist(), current_player, first_turn, False)
         turn_started = True
 
     if current_player == 1:
         if len(choice[current_player]) > 1 or first_turn:
-            PlayerHP[0], PlayerHP[1] = minmax.min_max(map, choice.tolist(), current_player, PlayerHP[0], PlayerHP[1], 0)
+            PlayerHP[0], PlayerHP[1], choice= minmax.min_max(map, choice.tolist(), current_player, PlayerHP[0], PlayerHP[1], 1)
         current_player = 1 - current_player
         turn_started = False
         if first_turn:
@@ -101,8 +102,10 @@ while not done:
                                 turn_started = False
                             break
 
-        if any(hex.skin.team == 0 for row in map.hex_row_list for hex in row.hex_list.flat):
-            check_battle = False
+
+        if len(map.free_hexes)>0:
+            check_battle=False
+
 
         if check_battle:
             PlayerHP[0], PlayerHP[1] = map_utils.battle(map, PlayerHP[0], PlayerHP[1])
