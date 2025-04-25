@@ -166,14 +166,14 @@ def draw_dot(screen, pos):
 def fill_choice(choice, current_player, first_turn, fake_fill):
     team_tiles = skins.team_tiles[current_player]
 
-    # Ensure choice[current_player] is a Python list
+    # Ensure choice[current_player] is treated as a Python list
     choice[current_player] = list(choice[current_player])
 
     if first_turn:
         choice[current_player].append(hexagon(200, 500, 50, 10, 10, skins.teams_hq[current_player]))
     else:
         xs_needed = [xs for xs in choice_xses if all(hex.points[0][0] != xs for hex in choice[current_player])]
-        source_tiles = list(team_tiles)  # always a list now
+        source_tiles = team_tiles.tolist() if fake_fill else list(team_tiles)
 
         for xs in xs_needed:
             if not source_tiles:
@@ -181,17 +181,39 @@ def fill_choice(choice, current_player, first_turn, fake_fill):
             idx = random.randint(0, len(source_tiles) - 1)
             tile = source_tiles[idx]
             choice[current_player].append(hexagon(xs, 500, 50, 10, 10, tile))
+
             if not fake_fill:
                 skins.team_tiles[current_player] = np.delete(team_tiles, idx)
             else:
                 del source_tiles[idx]
 
-    # Convert back to NumPy object array
+    # Convert back to NumPy object array if necessary
     choice[current_player] = np.array(choice[current_player], dtype=object)
-    choice = np.array([choice[0], choice[1]], dtype=object)
-
+    if current_player==0:
+        choice = np.array([choice[current_player], []], dtype=object)
+    else:
+        choice = np.array([[], choice[current_player]], dtype=object)        
     return choice
 
+# def battle(hex_map, hp1, hp2):
+#     for i in range(find_highest_init(hex_map), -1, -1):
+#         for hex in hex_map.taken_hexes:
+#             if i not in hex.skin.initiative:
+#                 continue
+#             for target in get_neighbors(hex_map, hex.q, hex.r) + get_neighbor_lines(hex_map, hex.q, hex.r):
+#                 if target is None:
+#                     if target.skin.lives is not None:
+#                         target.skin.lives -= 1
+#                         if target.skin.hq:
+#                             if target.skin.team == 1:
+#                                 hp1 -= 1
+#                             else:
+#                                 hp2 -= 1
+#                         if target.skin.lives == 0:
+#                             hex_map.taken_hexes.remove(target)
+#                             hex_map.free_hexes.append(target)
+#                             target.skin = skins.default_skin
+#     return hp1, hp2
 
 def battle(hex_map, player1hp, player2hp):
     init = find_highest_init(hex_map)

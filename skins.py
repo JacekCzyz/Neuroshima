@@ -19,7 +19,7 @@ class tile:
 default_skin = tile()
 
 team_1_hq = tile(team=1, lives=20, ranged_attack=[], initiative=[0], close_attack=[0,1,2,3,4,5], hq=True, color=[200, 0, 0])
-team_2_hq = tile(team=2, lives=20, ranged_attack=[], initiative=[0], close_attack=[0,1,2,3,4,5], hq=True, color=[0, 200, 0])
+team_2_hq = tile(team=2, lives=20, ranged_attack=[], initiative=[0], close_attack=[0,1,2,3,4,5], hq=True, color=[0, 0, 200])
 
 teams_hq = {
     0: team_1_hq,
@@ -27,7 +27,7 @@ teams_hq = {
 }
 
 team1_color = [255, 0, 0]
-team2_color = [0, 255, 0]
+team2_color = [0, 0, 255]
 
 # Tiles for each team
 team_tiles = np.array([
