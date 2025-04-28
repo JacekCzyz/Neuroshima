@@ -12,14 +12,16 @@ from collections import deque
 import random
 from stable_baselines3 import DQN
 import minmax
-
+from stable_baselines3.common.torch_layers import MlpExtractor
+from stable_baselines3.common.policies import ActorCriticPolicy
+import math
 class NeuroHexEnv(gym.Env):
     def __init__(self):
         super(NeuroHexEnv, self).__init__()
         
         self.action_space = spaces.Discrete(342) #each 114 actions mean-> xth tile into yth tile with zth rotation
 
-        self.observation_space = spaces.Box(low=0, high=255, shape=(100,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=255, shape=(21,), dtype=np.float32)  # shape =21 important
         self.choice = [[], []]
         self.screen = None
         self.map = None
@@ -33,13 +35,13 @@ class NeuroHexEnv(gym.Env):
     def reset(self):
         self.choice = [[], []]
         self.screen = None
-        self.map = None
+        self.map = hexagon_map(100, 50, 50)
         self.current_player = 0
         self.Player1hp, self.Player2hp = 20, 20
         self.done = False
         self.first_turn = True
         self.turn_started = False
-        map_utils.team_tiles = map_utils.team_tiles_safe_copy.copy() 
+        skins.team_tiles = skins.team_tiles_safe_copy.copy() 
         return self._get_obs()
 
     def step(self, action):
@@ -50,18 +52,18 @@ class NeuroHexEnv(gym.Env):
         rotations = 0
         if action < 114:
             chosen_tile = 0
-            place_index = action / 19
-            rotations = action % 19
+            place_index = math.floor(action / 19)
+            rotations = action % 6
         elif action < 228:
             temp = action - 114
             chosen_tile = 1
-            place_index = temp / 19
-            rotations = temp % 19            
+            place_index = math.floor(temp / 19)
+            rotations = temp % 6          
         else:
             temp = action - 228
             chosen_tile = 2
-            place_index = temp / 19
-            rotations = temp % 19   
+            place_index = math.floor(temp / 19)
+            rotations = temp % 6  
         battle=False
         selected_skin = self.choice[0][chosen_tile].skin
         if selected_skin.team == 3:
@@ -71,7 +73,8 @@ class NeuroHexEnv(gym.Env):
         else:
             for i in range(rotations):
                 selected_skin.rotate(1)
-            q,r=0,0
+            q=0
+            r=0
             if place_index<=2:
                 q=0
                 r=place_index
@@ -100,12 +103,16 @@ class NeuroHexEnv(gym.Env):
                     if len(self.choice[0])==1:
                         self.choice[0].pop(0)
                         self.current_player = 1
-                        self.turn_started = False  
+                        self.turn_started = False 
+                    elif self.first_turn:
+                        self.current_player = 1
+                        self.turn_started = False
                     break               
-
+        map_value = 0
         enemy_attacked = 2
         enemy_hq_attacked = 4
         ally_hq_attacked = -5
+        ally_attacked = -2        
         enemy_killed = 2
         ally_killed = -2
         placed_hex_attacked=-2
@@ -116,9 +123,9 @@ class NeuroHexEnv(gym.Env):
             ally_hq_attacked = -6
 
         attacked_hexes = []
-        for hex in self.hex_map.taken_hexes: #first check all tiles
-            attacked_hexes.extend(map_utils.get_neighbors(self.hex_map, hex.q, hex.r))
-            attacked_hexes.extend(map_utils.get_neighbor_lines(self.hex_map, hex.q, hex.r))
+        for hex in self.map.taken_hexes: #first check all tiles
+            attacked_hexes.extend(map_utils.get_neighbors(self.map, hex.q, hex.r))
+            attacked_hexes.extend(map_utils.get_neighbor_lines(self.map, hex.q, hex.r))
         
         checked_state = []
         for hex in attacked_hexes:
@@ -147,8 +154,8 @@ class NeuroHexEnv(gym.Env):
         #additional placed hex value
         attacked_hexes = []
         if not battle:
-            attacked_hexes.extend(map_utils.get_neighbors(self.hex_map, q, r))
-            attacked_hexes.extend(map_utils.get_neighbor_lines(self.hex_map, q, r))
+            attacked_hexes.extend(map_utils.get_neighbors(self.map, q, r))
+            attacked_hexes.extend(map_utils.get_neighbor_lines(self.map, q, r))
         for hex in attacked_hexes:
             if hex.skin.hq:
                 map_value+=enemy_hq_attacked
@@ -160,36 +167,45 @@ class NeuroHexEnv(gym.Env):
                 checked_state.append(hex)                   
 
         reward = map_value
+        
         if self.Player1hp <= 0 or self.Player2hp <= 0:
             done = True
             reward = 1 if self.Player1hp > self.Player2hp else -1
 
         return self._get_obs(), reward, done, {} #dict->info -> can return battle info
 
-    def _get_obs(self): #simple observation - hexes on map as flattened array
+    def _get_obs(self):
         obs = np.zeros(19, dtype=np.float32)
         index = 0
         for hex_row in self.map.hex_row_list:
             for hex_tile in hex_row.hex_list:
-                if hex_tile.skin.team == 0:
-                    obs[index] = 0
-                elif hex_tile.skin.team == 1:
+                if hex_tile.skin.team == 1:
                     obs[index] = 1
                 elif hex_tile.skin.team == 2:
                     obs[index] = 2
                 if hex_tile.skin.hq:
                     obs[index] += 0.5
-                index+=1
-        return obs
+                index += 1
+
+        # Now add HP info
+        player1_hp_normalized = self.Player1hp / 20.0
+        player2_hp_normalized = self.Player2hp / 20.0
+
+        full_obs = np.concatenate([obs, np.array([player1_hp_normalized, player2_hp_normalized], dtype=np.float32)])
+        
+        return full_obs
 
     def render(self, mode="human"):
+        
+        
         if self.screen is None:
             pygame.init()
             self.screen = pygame.display.set_mode((700, 700))
+            self.font = pygame.font.Font(None, 36)
         self.screen.fill((0, 0, 0))
         map_utils.draw_map(self.screen, self.map)
-        text1 = font.render(f"Player1 hp: {self.Player1hp}", True, (255, 255, 255))
-        text2 = font.render(f"Player2 hp: {self.Player2hp}", True, (255, 255, 255))
+        text1 = self.font.render(f"Player1 hp: {self.Player1hp}", True, (255, 255, 255))
+        text2 = self.font.render(f"Player2 hp: {self.Player2hp}", True, (255, 255, 255))
         self.screen.blit(text1, (500, 200))
         self.screen.blit(text2, (500, 300))
         pygame.display.flip()
@@ -229,18 +245,27 @@ def masked_predict(model, obs, env, epsilon=0.1):
         valid_actions = np.where(env.get_action_mask())[0]
         return np.random.choice(valid_actions)
 
-    q_values = model.policy.q_net(torch.tensor(obs).float().unsqueeze(0)).detach().numpy()[0]
+    obs_tensor = torch.tensor(obs).float().unsqueeze(0)  # <- add batch dimension!
+    q_values = model.policy.q_net(obs_tensor).detach().numpy()[0]
     mask = env.get_action_mask()
     masked_q_values = np.where(mask, q_values, -np.inf)
     action = np.argmax(masked_q_values)
     return action
+
     
+    
+
     
 if __name__ == "__main__":
     env = NeuroHexEnv()
+    #helps with smaller observation space - natively mlp policy expects 1d x100 array, i have x19
+    policy_kwargs = dict(
+        net_arch=[64, 64],  # small network: two layers of 64 neurons each
+    )        
     model = DQN(
         "MlpPolicy",
         env,
+        policy_kwargs=policy_kwargs,
         learning_rate=1e-4,
         buffer_size=10000,
         learning_starts=1000,
@@ -261,14 +286,20 @@ if __name__ == "__main__":
             map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
             env.turn_started = True
             
-        if env.current_player == 0:    
+        if env.current_player == 0:
             epsilon = model.exploration_rate
             action = masked_predict(model, obs, env, epsilon=epsilon)
             
             new_obs, reward, done, info = env.step(action)
             check_battle = info.get('check_battle', False)
-            model.replay_buffer.add(obs, action, reward, new_obs, done, info)
-            
+            model.replay_buffer.add(
+                np.array([obs]),         # shape (1, obs_dim)
+                np.array([new_obs]),     # shape (1, obs_dim)                
+                np.array([action]),      # shape (1,)
+                np.array([reward]),      # shape (1,)
+                np.array([done]),        # shape (1,)
+                infos=[info]             # must still be list
+            )            
             obs = new_obs
 
             if done:
@@ -277,9 +308,6 @@ if __name__ == "__main__":
             if step > model.learning_starts:
                 model.train(batch_size=model.batch_size, gradient_steps=1)
 
-            if step % model.target_update_interval == 0:
-                model.update_target_network()
-
         if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
             check_battle = False
 
@@ -287,8 +315,10 @@ if __name__ == "__main__":
             env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                
 
         if env.current_player == 1:
+            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
+            env.turn_started = True            
             if len(env.choice[1])>1 or env.first_turn:
-                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 1)  
+                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)  
             env.current_player = 0
             env.turn_started = False
             if env.first_turn:
