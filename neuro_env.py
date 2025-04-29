@@ -41,7 +41,7 @@ class NeuroHexEnv(gym.Env):
         self.done = False
         self.first_turn = True
         self.turn_started = False
-        skins.team_tiles = skins.team_tiles_safe_copy.copy() 
+        skins.team_tiles = skins.reset_tiles()
         return self._get_obs()
 
     def step(self, action):
@@ -50,19 +50,21 @@ class NeuroHexEnv(gym.Env):
         chosen_tile = 0
         place_index = 0
         rotations = 0
+        q=0
+        r=0        
         if action < 114:
             chosen_tile = 0
-            place_index = math.floor(action / 19)
+            place_index = math.floor(action / 6)
             rotations = action % 6
         elif action < 228:
             temp = action - 114
             chosen_tile = 1
-            place_index = math.floor(temp / 19)
+            place_index = math.floor(temp / 6)
             rotations = temp % 6          
         else:
             temp = action - 228
             chosen_tile = 2
-            place_index = math.floor(temp / 19)
+            place_index = math.floor(temp / 6)
             rotations = temp % 6  
         battle=False
         selected_skin = self.choice[0][chosen_tile].skin
@@ -73,8 +75,7 @@ class NeuroHexEnv(gym.Env):
         else:
             for i in range(rotations):
                 selected_skin.rotate(1)
-            q=0
-            r=0
+
             if place_index<=2:
                 q=0
                 r=place_index
@@ -100,14 +101,16 @@ class NeuroHexEnv(gym.Env):
                     self.map.free_hexes.pop(i)                            
                     self.choice[0].pop(chosen_tile)
                                    
-                    if len(self.choice[0])==1:
-                        self.choice[0].pop(0)
-                        self.current_player = 1
-                        self.turn_started = False 
-                    elif self.first_turn:
-                        self.current_player = 1
-                        self.turn_started = False
-                    break               
+                    break 
+        
+        if len(self.choice[0])==1:
+            self.choice[0].pop(0)
+            self.current_player = 1
+            self.turn_started = False 
+        elif self.first_turn:
+            self.current_player = 1
+            self.turn_started = False    
+                             
         map_value = 0
         enemy_attacked = 2
         enemy_hq_attacked = 4
@@ -170,7 +173,7 @@ class NeuroHexEnv(gym.Env):
         
         if self.Player1hp <= 0 or self.Player2hp <= 0:
             done = True
-            reward = 1 if self.Player1hp > self.Player2hp else -1
+            reward = 100 if self.Player1hp > self.Player2hp else -100
 
         return self._get_obs(), reward, done, {} #dict->info -> can return battle info
 
@@ -217,26 +220,26 @@ class NeuroHexEnv(gym.Env):
 
     def get_action_mask(self):
         action_mask = np.ones(342, dtype=bool)
-        start_index = 0
-        is_hex_free=[]
-        
-        for hex in self.map.hex_row_list:
-            for hex_tile in hex.hex_list:
-                if hex_tile.skin.team == 0:
-                    is_hex_free.append(1)
-                else:
-                    is_hex_free.append(0)
-        for i in range(3):
-            if i<len(self.choice[0]):
-                for j in range(19):
-                    if is_hex_free[j] == 0:
-                        for k in range(6):
-                            action_mask[start_index + j * 6 + k] = False
+        hex_id = 0
+        hex_status = {}
+        for row in self.map.hex_row_list:
+            for hex_tile in row.hex_list:
+                hex_status[hex_id] = (hex_tile.skin.team == 0)
+                hex_id += 1
+
+        for i in range(3):  # 3 possible tiles
+            if i < len(self.choice[0]):
+                for hex_id in range(19):  # match your action encoding
+                    if not hex_status.get(hex_id, False):
+                        for rot in range(6):
+                            idx = i * 114 + hex_id * 6 + rot
+                            action_mask[idx] = False
             else:
-                for j in range(19):
-                    for k in range(6):
-                        action_mask[start_index + j * 6 + k] = False
-            start_index += 19 * 6
+                for hex_id in range(19):
+                    for rot in range(6):
+                        idx = i * 114 + hex_id * 6 + rot
+                        action_mask[idx] = False
+
         return action_mask
     
         
@@ -245,7 +248,7 @@ def masked_predict(model, obs, env, epsilon=0.1):
         valid_actions = np.where(env.get_action_mask())[0]
         return np.random.choice(valid_actions)
 
-    obs_tensor = torch.tensor(obs).float().unsqueeze(0)  # <- add batch dimension!
+    obs_tensor = torch.tensor(obs).float().unsqueeze(0)
     q_values = model.policy.q_net(obs_tensor).detach().numpy()[0]
     mask = env.get_action_mask()
     masked_q_values = np.where(mask, q_values, -np.inf)
@@ -276,8 +279,9 @@ if __name__ == "__main__":
         verbose=1,
     )
 
-    total_timesteps = 100_000
+    total_timesteps = 100_0
     obs = env.reset()
+    model._setup_learn(total_timesteps=total_timesteps)
 
     tile_counter=0
     for step in range(total_timesteps*2):
@@ -286,12 +290,11 @@ if __name__ == "__main__":
             map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
             env.turn_started = True
             
-        if env.current_player == 0:
+        if env.current_player == 0 and len(env.choice[0])>0:
             epsilon = model.exploration_rate
             action = masked_predict(model, obs, env, epsilon=epsilon)
             
             new_obs, reward, done, info = env.step(action)
-            check_battle = info.get('check_battle', False)
             model.replay_buffer.add(
                 np.array([obs]),         # shape (1, obs_dim)
                 np.array([new_obs]),     # shape (1, obs_dim)                
@@ -331,5 +334,77 @@ if __name__ == "__main__":
             env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
         env.render()
         if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
+            final_reward = 0
+            if env.Player1hp > env.Player2hp:
+                final_reward = 1.0
+            elif env.Player1hp < env.Player2hp:
+                final_reward = -1.0
+            else:
+                final_reward = 0.0  # tie
+
+            # Add a final transition to the replay buffer
+            model.replay_buffer.add(
+                np.array([obs]),
+                np.array([obs]),       # next_obs doesn't matter much here
+                np.array([0]),         # dummy action (or last action again)
+                np.array([final_reward]),
+                np.array([True]),      # episode ends
+                infos=[{"final": True}]
+            )            
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
             obs = env.reset()
+            
+            
+    env.reset()
+    model.save("pacman_dqn_model")
+    
+    input("Press enter to play a game")
+    done=False
+    clock = pygame.time.Clock()
+    while not done:
+        clock.tick(90)
+
+        check_battle = True
+        if not env.turn_started:
+            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
+            env.turn_started = True
+            
+        if env.current_player == 0:
+            if len(env.choice[0])>1 or env.first_turn:
+                epsilon = model.exploration_rate
+                action = masked_predict(model, obs, env, epsilon=epsilon)
+                
+                new_obs, reward, done, info = env.step(action)
+            
+                obs = new_obs
+
+                if done:
+                    obs = env.reset()
+
+
+        if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
+            check_battle = False
+
+        if check_battle:
+            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                
+
+        if env.current_player == 1:
+            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
+            env.turn_started = True            
+            if len(env.choice[1])>1 or env.first_turn:
+                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)  
+            env.current_player = 0
+            env.turn_started = False
+            if env.first_turn:
+                env.first_turn=False
+                
+        if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
+            check_battle = False
+
+        if check_battle:
+            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
+            
+        env.render()
+        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
+            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
+            obs = env.reset()    
