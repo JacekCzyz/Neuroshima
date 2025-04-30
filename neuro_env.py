@@ -21,7 +21,7 @@ class NeuroHexEnv(gym.Env):
         
         self.action_space = spaces.Discrete(342) #each 114 actions mean-> xth tile into yth tile with zth rotation
 
-        self.observation_space = spaces.Box(low=0, high=255, shape=(21,), dtype=np.float32)  # shape =21 important
+        self.observation_space = spaces.Box(low=0, high=5, shape=(147,), dtype=np.float32) #147 = 21*7 (19 tiles + 2 hp info)
         self.choice = [[], []]
         self.screen = None
         self.map = None
@@ -178,25 +178,33 @@ class NeuroHexEnv(gym.Env):
         return self._get_obs(), reward, done, {} #dict->info -> can return battle info
 
     def _get_obs(self):
-        obs = np.zeros(19, dtype=np.float32)
+        obs = np.zeros((19, 7), dtype=np.float32)
         index = 0
         for hex_row in self.map.hex_row_list:
             for hex_tile in hex_row.hex_list:
+                # Column 0: team info
                 if hex_tile.skin.team == 1:
-                    obs[index] = 1
+                    obs[index, 0] = 1
                 elif hex_tile.skin.team == 2:
-                    obs[index] = 2
+                    obs[index, 0] = 2
                 if hex_tile.skin.hq:
-                    obs[index] += 0.5
+                    obs[index, 0] += 0.5
+
+                # Columns 1–6: attack directions
+                for direction in hex_tile.skin.close_attack + hex_tile.skin.ranged_attack:
+                    if 0 <= direction <= 5:
+                        obs[index, direction + 1] = 1  # +1 because col 0 is team
+
                 index += 1
 
-        # Now add HP info
         player1_hp_normalized = self.Player1hp / 20.0
         player2_hp_normalized = self.Player2hp / 20.0
 
-        full_obs = np.concatenate([obs, np.array([player1_hp_normalized, player2_hp_normalized], dtype=np.float32)])
+        hp_info = np.array([[player1_hp_normalized]*7, [player2_hp_normalized]*7], dtype=np.float32)
         
-        return full_obs
+        # Stack: final shape (21, 7)
+        full_obs = np.vstack([obs, hp_info])
+        return full_obs.flatten()
 
     def render(self, mode="human"):
         
@@ -278,8 +286,8 @@ if __name__ == "__main__":
         exploration_fraction=0.1,
         verbose=1,
     )
-
-    total_timesteps = 100_0
+    results=[0,0,0]
+    total_timesteps = 100_000 
     obs = env.reset()
     model._setup_learn(total_timesteps=total_timesteps)
 
@@ -337,9 +345,12 @@ if __name__ == "__main__":
             final_reward = 0
             if env.Player1hp > env.Player2hp:
                 final_reward = 1.0
+                results[0]+=1
             elif env.Player1hp < env.Player2hp:
                 final_reward = -1.0
+                results[1]+=1                
             else:
+                results[2]+=1                
                 final_reward = 0.0  # tie
 
             # Add a final transition to the replay buffer
@@ -352,12 +363,16 @@ if __name__ == "__main__":
                 infos=[{"final": True}]
             )            
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
+
             obs = env.reset()
             
             
     env.reset()
-    model.save("pacman_dqn_model")
+    model.save("neuroshima_dqn_model")
     
+    print("wins" +str(results[0]))
+    print("losses" +str(results[1]))    
+    print("ties" +str(results[2]))
     input("Press enter to play a game")
     done=False
     clock = pygame.time.Clock()
@@ -407,4 +422,5 @@ if __name__ == "__main__":
         env.render()
         if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()    
+            obs = env.reset()
+            done=True
