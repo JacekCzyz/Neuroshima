@@ -15,13 +15,21 @@ import minmax
 from stable_baselines3.common.torch_layers import MlpExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
 import math
+
+NUM_TILES = 31
+NUM_PLACEMENTS = 19
+NUM_ROTATIONS = 6
+
+ACTION_SPACE_SIZE = NUM_PLACEMENTS * NUM_ROTATIONS * NUM_TILES
+
+
 class NeuroHexEnv(gym.Env):
     def __init__(self):
         super(NeuroHexEnv, self).__init__()
         
-        self.action_space = spaces.Discrete(342) #each 114 actions mean-> xth tile into yth tile with zth rotation
+        self.action_space = spaces.Discrete(3534) #each 114 actions mean-> xth tile into yth tile with zth rotation
 
-        self.observation_space = spaces.Box(low=0, high=5, shape=(147,), dtype=np.float32) #147 = 21*7 (19 tiles + 2 hp info)
+        self.observation_space = spaces.Box(low=0, high=5, shape=(273,), dtype=np.float32) #273 = 21*13 (19 tiles + 2 hp info)
         self.choice = [[], []]
         self.screen = None
         self.map = None
@@ -29,7 +37,9 @@ class NeuroHexEnv(gym.Env):
         self.Player1hp, self.Player2hp = 20, 20
         self.done = False
         self.first_turn = True
-        self.turn_started = False        
+        self.turn_started = False    
+        self.all_player_tiles = skins.team_tiles[0] + [skins.teams_hq[0]]
+            
         self.reset()
 
     def reset(self):
@@ -42,6 +52,7 @@ class NeuroHexEnv(gym.Env):
         self.first_turn = True
         self.turn_started = False
         skins.team_tiles = skins.reset_tiles()
+        self.all_player_tiles = skins.team_tiles[0] + [skins.teams_hq[0]]
         return self._get_obs()
 
     def step(self, action):
@@ -52,20 +63,25 @@ class NeuroHexEnv(gym.Env):
         rotations = 0
         q=0
         r=0        
-        if action < 114:
-            chosen_tile = 0
-            place_index = math.floor(action / 6)
-            rotations = action % 6
-        elif action < 228:
-            temp = action - 114
-            chosen_tile = 1
-            place_index = math.floor(temp / 6)
-            rotations = temp % 6          
-        else:
-            temp = action - 228
-            chosen_tile = 2
-            place_index = math.floor(temp / 6)
-            rotations = temp % 6  
+        tile_index, place_index, rotations = decode_action(action)
+        for i, hex in enumerate(env.choice[0]):
+            if hex.skin.equals(self.all_player_tiles[tile_index]):
+                chosen_tile = i
+        # if action < 114:
+        #     chosen_tile = 0
+        #     place_index = math.floor(action / 6)
+        #     rotations = action % 6
+        # elif action < 228:
+        #     temp = action - 114
+        #     chosen_tile = 1
+        #     place_index = math.floor(temp / 6)
+        #     rotations = temp % 6          
+        # else:
+        #     temp = action - 228
+        #     chosen_tile = 2
+        #     place_index = math.floor(temp / 6)
+        #     rotations = temp % 6  
+        
         battle=False
         selected_skin = self.choice[0][chosen_tile].skin
         if selected_skin.team == 3:
@@ -113,17 +129,17 @@ class NeuroHexEnv(gym.Env):
                              
         map_value = 0
         enemy_attacked = 2
-        enemy_hq_attacked = 4
-        ally_hq_attacked = -5
+        enemy_hq_attacked = 6
+        ally_hq_attacked = -8
         ally_attacked = -2        
-        enemy_killed = 2
-        ally_killed = -2
-        placed_hex_attacked=-2
+        enemy_killed = 3
+        ally_killed = -3
+        placed_hex_attacked=-3
         if battle:
             enemy_attacked = 3
             ally_attacked = -3
-            enemy_hq_attacked = 5
-            ally_hq_attacked = -6
+            enemy_hq_attacked = 8
+            ally_hq_attacked = -10
 
         attacked_hexes = []
         for hex in self.map.taken_hexes: #first check all tiles
@@ -177,8 +193,10 @@ class NeuroHexEnv(gym.Env):
 
         return self._get_obs(), reward, done, {} #dict->info -> can return battle info
 
+
     def _get_obs(self):
-        obs = np.zeros((19, 7), dtype=np.float32)
+        obs = np.zeros((19, 13), dtype=np.float32)  # 1 + 6 + 6
+
         index = 0
         for hex_row in self.map.hex_row_list:
             for hex_tile in hex_row.hex_list:
@@ -190,25 +208,30 @@ class NeuroHexEnv(gym.Env):
                 if hex_tile.skin.hq:
                     obs[index, 0] += 0.5
 
-                # Columns 1–6: attack directions
-                for direction in hex_tile.skin.close_attack + hex_tile.skin.ranged_attack:
+                # Columns 1–6: close attacks
+                for direction in hex_tile.skin.close_attack:
                     if 0 <= direction <= 5:
-                        obs[index, direction + 1] = 1  # +1 because col 0 is team
+                        obs[index, 1 + direction] = 1
+
+                # Columns 7–12: ranged attacks
+                for direction in hex_tile.skin.ranged_attack:
+                    if 0 <= direction <= 5:
+                        obs[index, 7 + direction] = 1
 
                 index += 1
 
+        # Normalize HPs
         player1_hp_normalized = self.Player1hp / 20.0
         player2_hp_normalized = self.Player2hp / 20.0
 
-        hp_info = np.array([[player1_hp_normalized]*7, [player2_hp_normalized]*7], dtype=np.float32)
-        
-        # Stack: final shape (21, 7)
-        full_obs = np.vstack([obs, hp_info])
-        return full_obs.flatten()
+        # Create two rows with broadcasted HP info across all 13 columns
+        hp_info = np.array([[player1_hp_normalized]*13, [player2_hp_normalized]*13], dtype=np.float32)
+
+        full_obs = np.vstack([obs, hp_info])  # Shape (21, 13)
+        return full_obs.flatten()  # Final shape: (273,)
+
 
     def render(self, mode="human"):
-        
-        
         if self.screen is None:
             pygame.init()
             self.screen = pygame.display.set_mode((700, 700))
@@ -226,30 +249,39 @@ class NeuroHexEnv(gym.Env):
             pygame.quit()
 
 
+    def _get_tile_type_index(self, tile):
+        
+        for i, template in enumerate(env.all_player_tiles):
+            if tile.skin.equals(template):  # define .equals() on tile or use attribute matching
+                return i
+        raise ValueError("Tile not found in template list")
+
+
     def get_action_mask(self):
-        action_mask = np.ones(342, dtype=bool)
-        hex_id = 0
-        hex_status = {}
+        mask = np.zeros(ACTION_SPACE_SIZE, dtype=bool)
+
+        # Build list of valid placements
+        free_hexes = []  # should be list of indices 0..18 that are empty
+        index = 0
         for row in self.map.hex_row_list:
             for hex_tile in row.hex_list:
-                hex_status[hex_id] = (hex_tile.skin.team == 0)
-                hex_id += 1
+                if hex_tile.skin.team == 0:
+                    free_hexes.append(index)
+                index += 1
 
-        for i in range(3):  # 3 possible tiles
-            if i < len(self.choice[0]):
-                for hex_id in range(19):  # match your action encoding
-                    if not hex_status.get(hex_id, False):
-                        for rot in range(6):
-                            idx = i * 114 + hex_id * 6 + rot
-                            action_mask[idx] = False
-            else:
-                for hex_id in range(19):
-                    for rot in range(6):
-                        idx = i * 114 + hex_id * 6 + rot
-                        action_mask[idx] = False
+        # Active tiles this turn
+        active_tiles = self.choice[0]  # assuming it's player 0's turn
 
-        return action_mask
-    
+        for i, tile in enumerate(active_tiles):
+            tile_id = self._get_tile_type_index(tile)  # see next section
+
+            for placement in free_hexes:
+                for rotation in range(NUM_ROTATIONS):
+                    idx = encode_action(tile_id, placement, rotation)
+                    mask[idx] = True
+
+        return mask
+
         
 def masked_predict(model, obs, env, epsilon=0.1):
     if np.random.rand() < epsilon:
@@ -263,7 +295,18 @@ def masked_predict(model, obs, env, epsilon=0.1):
     action = np.argmax(masked_q_values)
     return action
 
-    
+
+def encode_action(tile_index, placement_index, rotation):
+
+    return tile_index * NUM_PLACEMENTS * NUM_ROTATIONS + placement_index * NUM_ROTATIONS + rotation
+
+
+def decode_action(action_id):
+    tile_index = action_id // (NUM_PLACEMENTS * NUM_ROTATIONS)
+    remainder = action_id % (NUM_PLACEMENTS * NUM_ROTATIONS)
+    placement_index = remainder // NUM_ROTATIONS
+    rotation = remainder % NUM_ROTATIONS
+    return tile_index, placement_index, rotation    
     
 
     
@@ -287,7 +330,7 @@ if __name__ == "__main__":
         verbose=1,
     )
     results=[0,0,0]
-    total_timesteps = 100_000 
+    total_timesteps = 500_000 
     obs = env.reset()
     model._setup_learn(total_timesteps=total_timesteps)
 
