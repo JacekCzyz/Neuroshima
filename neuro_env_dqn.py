@@ -1,5 +1,5 @@
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 import torch
 import numpy as np
 import pygame
@@ -15,6 +15,7 @@ import minmax
 from stable_baselines3.common.torch_layers import MlpExtractor
 from stable_baselines3.common.policies import ActorCriticPolicy
 import math
+import time 
 
 NUM_TILES = 31
 NUM_PLACEMENTS = 19
@@ -27,7 +28,7 @@ class NeuroHexEnv(gym.Env):
     def __init__(self):
         super(NeuroHexEnv, self).__init__()
         
-        self.action_space = spaces.Discrete(3534) #each 114 actions mean-> xth tile into yth tile with zth rotation
+        self.action_space = gym.spaces.Discrete(3534) #each 114 actions mean-> xth tile into yth tile with zth rotation
 
         self.observation_space = spaces.Box(low=0, high=5, shape=(273,), dtype=np.float32) #273 = 21*13 (19 tiles + 2 hp info)
         self.choice = [[], []]
@@ -42,7 +43,8 @@ class NeuroHexEnv(gym.Env):
             
         self.reset()
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
         self.choice = [[], []]
         self.screen = None
         self.map = hexagon_map(100, 50, 50)
@@ -53,7 +55,9 @@ class NeuroHexEnv(gym.Env):
         self.turn_started = False
         skins.team_tiles = skins.reset_tiles()
         self.all_player_tiles = skins.team_tiles[0] + [skins.teams_hq[0]]
-        return self._get_obs()
+        
+        obs = self._get_obs()
+        return obs, {}
 
     def step(self, action):
         reward = 0
@@ -67,20 +71,7 @@ class NeuroHexEnv(gym.Env):
         for i, hex in enumerate(env.choice[0]):
             if hex.skin.equals(self.all_player_tiles[tile_index]):
                 chosen_tile = i
-        # if action < 114:
-        #     chosen_tile = 0
-        #     place_index = math.floor(action / 6)
-        #     rotations = action % 6
-        # elif action < 228:
-        #     temp = action - 114
-        #     chosen_tile = 1
-        #     place_index = math.floor(temp / 6)
-        #     rotations = temp % 6          
-        # else:
-        #     temp = action - 228
-        #     chosen_tile = 2
-        #     place_index = math.floor(temp / 6)
-        #     rotations = temp % 6  
+                break
         
         battle=False
         selected_skin = self.choice[0][chosen_tile].skin
@@ -191,7 +182,7 @@ class NeuroHexEnv(gym.Env):
             done = True
             reward = 100 if self.Player1hp > self.Player2hp else -100
 
-        return self._get_obs(), reward, done, {} #dict->info -> can return battle info
+        return self._get_obs(), reward, done, False, {} #dict->info -> can return battle info
 
 
     def _get_obs(self):
@@ -224,7 +215,6 @@ class NeuroHexEnv(gym.Env):
         player1_hp_normalized = self.Player1hp / 20.0
         player2_hp_normalized = self.Player2hp / 20.0
 
-        # Create two rows with broadcasted HP info across all 13 columns
         hp_info = np.array([[player1_hp_normalized]*13, [player2_hp_normalized]*13], dtype=np.float32)
 
         full_obs = np.vstack([obs, hp_info])  # Shape (21, 13)
@@ -252,7 +242,7 @@ class NeuroHexEnv(gym.Env):
     def _get_tile_type_index(self, tile):
         
         for i, template in enumerate(env.all_player_tiles):
-            if tile.skin.equals(template):  # define .equals() on tile or use attribute matching
+            if tile.skin.equals(template):
                 return i
         raise ValueError("Tile not found in template list")
 
@@ -260,8 +250,7 @@ class NeuroHexEnv(gym.Env):
     def get_action_mask(self):
         mask = np.zeros(ACTION_SPACE_SIZE, dtype=bool)
 
-        # Build list of valid placements
-        free_hexes = []  # should be list of indices 0..18 that are empty
+        free_hexes = []
         index = 0
         for row in self.map.hex_row_list:
             for hex_tile in row.hex_list:
@@ -269,11 +258,10 @@ class NeuroHexEnv(gym.Env):
                     free_hexes.append(index)
                 index += 1
 
-        # Active tiles this turn
-        active_tiles = self.choice[0]  # assuming it's player 0's turn
+        active_tiles = self.choice[0]
 
         for i, tile in enumerate(active_tiles):
-            tile_id = self._get_tile_type_index(tile)  # see next section
+            tile_id = self._get_tile_type_index(tile)
 
             for placement in free_hexes:
                 for rotation in range(NUM_ROTATIONS):
@@ -308,13 +296,48 @@ def decode_action(action_id):
     rotation = remainder % NUM_ROTATIONS
     return tile_index, placement_index, rotation    
     
+def test_game(model):
+    env = NeuroHexEnv()
+    obs = env.reset()[0]
+    done = False
+    clock = pygame.time.Clock()
 
-    
+    while not done:
+        clock.tick(90)
+
+        if not env.turn_started:
+            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
+            env.turn_started = True
+
+        if env.current_player == 0:
+            if len(env.choice[0]) > 0:
+                action, _ = model.predict(obs, deterministic=True)
+                obs, reward, done, _ = env.step(action)
+                if done:
+                    obs = env.reset()[0]
+
+        if env.current_player == 1:
+            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
+            env.turn_started = True
+            if len(env.choice[1]) > 1 or env.first_turn:
+                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)
+            env.current_player = 0
+            env.turn_started = False
+            if env.first_turn:
+                env.first_turn = False
+
+        env.render()
+        if env.Player1hp <= 0 or env.Player2hp <= 0 or \
+           (len(skins.team_tiles[0]) <= 1 and len(skins.team_tiles[1]) <= 1):
+            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
+            obs = env.reset()[0]
+            done = True    
+
+
 if __name__ == "__main__":
     env = NeuroHexEnv()
-    #helps with smaller observation space - natively mlp policy expects 1d x100 array, i have x19
     policy_kwargs = dict(
-        net_arch=[64, 64],  # small network: two layers of 64 neurons each
+        net_arch=[64, 64],
     )        
     model = DQN(
         "MlpPolicy",
@@ -331,10 +354,12 @@ if __name__ == "__main__":
     )
     results=[0,0,0]
     total_timesteps = 500_000 
-    obs = env.reset()
+    obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
+    f = open("reward_time_dqn.csv", "w")
     tile_counter=0
+    start_time = time.time()
     for step in range(total_timesteps*2):
         check_battle = True
         if not env.turn_started:
@@ -345,7 +370,9 @@ if __name__ == "__main__":
             epsilon = model.exploration_rate
             action = masked_predict(model, obs, env, epsilon=epsilon)
             
-            new_obs, reward, done, info = env.step(action)
+            new_obs, reward, done, truncated, info = env.step(action)
+            f.write(str(reward) + ",")
+            
             model.replay_buffer.add(
                 np.array([obs]),         # shape (1, obs_dim)
                 np.array([new_obs]),     # shape (1, obs_dim)                
@@ -357,7 +384,7 @@ if __name__ == "__main__":
             obs = new_obs
 
             if done:
-                obs = env.reset()
+                obs = env.reset()[0]
 
             if step > model.learning_starts:
                 model.train(batch_size=model.batch_size, gradient_steps=1)
@@ -389,27 +416,35 @@ if __name__ == "__main__":
             if env.Player1hp > env.Player2hp:
                 final_reward = 1.0
                 results[0]+=1
+                f.write("\n"+"1won" + "\n")
+                
             elif env.Player1hp < env.Player2hp:
                 final_reward = -1.0
-                results[1]+=1                
+                results[1]+=1     
+                f.write("\n"+"2won" + "\n")
+                           
             else:
                 results[2]+=1                
-                final_reward = 0.0  # tie
+                final_reward = 0.0
+                f.write("\n"+"tie" + "\n")
 
-            # Add a final transition to the replay buffer
             model.replay_buffer.add(
                 np.array([obs]),
-                np.array([obs]),       # next_obs doesn't matter much here
-                np.array([0]),         # dummy action (or last action again)
+                np.array([obs]),       
+                np.array([0]),        
                 np.array([final_reward]),
-                np.array([True]),      # episode ends
+                np.array([True]),      
                 infos=[{"final": True}]
             )            
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
 
-            obs = env.reset()
+            obs = env.reset()[0]
             
-            
+    end_time = time.time()
+
+    elapsed_time = end_time - start_time
+    f.write("\n"+str(elapsed_time))
+    f.close()            
     env.reset()
     model.save("neuroshima_dqn_model")
     
@@ -417,53 +452,5 @@ if __name__ == "__main__":
     print("losses" +str(results[1]))    
     print("ties" +str(results[2]))
     input("Press enter to play a game")
-    done=False
-    clock = pygame.time.Clock()
-    while not done:
-        clock.tick(90)
 
-        check_battle = True
-        if not env.turn_started:
-            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
-            env.turn_started = True
-            
-        if env.current_player == 0:
-            if len(env.choice[0])>1 or env.first_turn:
-                epsilon = model.exploration_rate
-                action = masked_predict(model, obs, env, epsilon=epsilon)
-                
-                new_obs, reward, done, info = env.step(action)
-            
-                obs = new_obs
-
-                if done:
-                    obs = env.reset()
-
-
-        if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
-            check_battle = False
-
-        if check_battle:
-            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                
-
-        if env.current_player == 1:
-            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
-            env.turn_started = True            
-            if len(env.choice[1])>1 or env.first_turn:
-                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)  
-            env.current_player = 0
-            env.turn_started = False
-            if env.first_turn:
-                env.first_turn=False
-                
-        if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
-            check_battle = False
-
-        if check_battle:
-            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
-            
-        env.render()
-        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
-            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()
-            done=True
+    test_game(model)
