@@ -330,8 +330,7 @@ def test_game(model):
                 env.first_turn = False
 
         env.render()
-        if env.Player1hp <= 0 or env.Player2hp <= 0 or \
-           (len(skins.team_tiles[0]) <= 1 and len(skins.team_tiles[1]) <= 1):
+        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
             obs = env.reset()[0]
             done = True    
@@ -363,6 +362,9 @@ if __name__ == "__main__":
     start_time = time.time()
     for step in range(total_timesteps*2):
         check_battle = True
+        if rollout_buffer.full:
+            model.train()
+            rollout_buffer.reset()        
         if not env.turn_started:
             map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
             env.turn_started = True
@@ -377,6 +379,9 @@ if __name__ == "__main__":
 
             new_obs, reward, done, info = env.step(action)
             f.write(str(reward) + ",")
+            
+
+                            
             rollout_buffer.add(obs, np.asarray(action), np.asarray(reward), done, value, log_prob, action_masks=action_masks)
             obs = new_obs
 
@@ -408,7 +413,7 @@ if __name__ == "__main__":
 
         if check_battle:
             env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
-        env.render()
+        #env.render()
         if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             final_reward = 0
             if env.Player1hp > env.Player2hp:
@@ -444,4 +449,49 @@ if __name__ == "__main__":
     print("ties" +str(results[2]))
     input("Press enter to play a game")
     
-    test_game(model)
+    done=False
+    clock = pygame.time.Clock()
+    while not done:
+        clock.tick(90)
+ 
+        check_battle = True
+        if not env.turn_started:
+            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
+            env.turn_started = True
+ 
+        if env.current_player == 0:
+            if len(env.choice[0])>1 or env.first_turn:
+                action, _ = model.predict(obs, deterministic=True)
+ 
+                obs, reward, done, _ = env.step(action)
+ 
+                if done:
+                    obs = env.reset()
+ 
+ 
+        if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
+            check_battle = False
+ 
+        if check_battle:
+            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                
+ 
+        if env.current_player == 1:
+            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
+            env.turn_started = True            
+            if len(env.choice[1])>1 or env.first_turn:
+                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)  
+            env.current_player = 0
+            env.turn_started = False
+            if env.first_turn:
+                env.first_turn=False
+ 
+        if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
+            check_battle = False
+ 
+        if check_battle:
+            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
+ 
+        env.render()
+        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
+            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
+            obs = env.reset()

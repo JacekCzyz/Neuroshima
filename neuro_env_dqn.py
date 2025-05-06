@@ -312,7 +312,7 @@ def test_game(model):
         if env.current_player == 0:
             if len(env.choice[0]) > 0:
                 action, _ = model.predict(obs, deterministic=True)
-                obs, reward, done, _ = env.step(action)
+                new_obs, reward, done, truncated, info = env.step(action)
                 if done:
                     obs = env.reset()[0]
 
@@ -410,7 +410,7 @@ if __name__ == "__main__":
 
         if check_battle:
             env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
-        env.render()
+        #env.render()
         if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             final_reward = 0
             if env.Player1hp > env.Player2hp:
