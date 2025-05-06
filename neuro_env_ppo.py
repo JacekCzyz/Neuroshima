@@ -7,12 +7,7 @@ import map_utils
 from hex import hexagon_map
 from skins import tile
 import skins
-from pygame import font
-from collections import deque
-from stable_baselines3 import DQN
 import minmax
-from stable_baselines3.common.torch_layers import MlpExtractor
-from stable_baselines3.common.policies import ActorCriticPolicy
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.maskable.utils import get_action_masks
 from sb3_contrib.common.wrappers import ActionMasker

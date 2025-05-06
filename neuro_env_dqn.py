@@ -7,14 +7,8 @@ import map_utils
 from hex import hexagon_map
 from skins import tile
 import skins
-from pygame import font
-from collections import deque
-import random
 from stable_baselines3 import DQN
 import minmax
-from stable_baselines3.common.torch_layers import MlpExtractor
-from stable_baselines3.common.policies import ActorCriticPolicy
-import math
 import time 
 
 NUM_TILES = 31
@@ -68,7 +62,7 @@ class NeuroHexEnv(gym.Env):
         q=0
         r=0        
         tile_index, place_index, rotations = decode_action(action)
-        for i, hex in enumerate(env.choice[0]):
+        for i, hex in enumerate(self.choice[0]):
             if hex.skin.equals(self.all_player_tiles[tile_index]):
                 chosen_tile = i
                 break
@@ -241,7 +235,7 @@ class NeuroHexEnv(gym.Env):
 
     def _get_tile_type_index(self, tile):
         
-        for i, template in enumerate(env.all_player_tiles):
+        for i, template in enumerate(self.all_player_tiles):
             if tile.skin.equals(template):
                 return i
         raise ValueError("Tile not found in template list")
@@ -311,7 +305,7 @@ def test_game(model):
 
         if env.current_player == 0:
             if len(env.choice[0]) > 0:
-                action, _ = model.predict(obs, deterministic=True)
+                action, _ = model.masked_predict(obs, deterministic=True)
                 new_obs, reward, done, truncated, info = env.step(action)
                 if done:
                     obs = env.reset()[0]

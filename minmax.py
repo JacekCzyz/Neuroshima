@@ -217,6 +217,8 @@ def make_final_move(hex_map, move_val, choice, player, player1hp, player2hp):
                     hex_map.taken_hexes.append(hex)
                     hex_map.free_hexes.pop(j)                            
                     break
+    if len(hex_map.free_hexes)==0:
+        player1hp, player2hp = map_utils.battle(hex_map, player1hp, player2hp)                
     if len(move_val.choice_indexes)>1:
         choice[player].clear()
     else:
