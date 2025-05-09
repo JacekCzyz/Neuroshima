@@ -36,7 +36,7 @@ while not done:
 
     if current_player==1:
         if len(choice[current_player])>1 or first_turn:
-            Player1hp, Player2hp = minmax.min_max(map, choice, current_player, Player1hp, Player2hp, 1)  
+            Player1hp, Player2hp = minmax.min_max(map, choice, current_player, Player1hp, Player2hp, 0)  
         current_player = 1 - current_player
         turn_started = False
         if first_turn:

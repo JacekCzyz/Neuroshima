@@ -1,6 +1,6 @@
-from neuro_env_dqn import NeuroHexEnv as NeuroHexEnv_dqn
+from neuro_env_dqn_minmax import NeuroHexEnv as NeuroHexEnv_dqn
 from neuro_env_ppo import NeuroHexEnv as NeuroHexEnv_ppo
-import neuro_env_dqn
+import neuro_env_dqn_minmax
 import neuro_env_ppo
 import pygame
 import map_utils
@@ -27,12 +27,13 @@ if __name__ == "__main__":
     test_result_file = open("test_results.csv", "w")
     
     test_result_file.write("neuroshima_dqn_model1-500_000.zip\n")
-    
+
     for i in range(1000):
         done=False
         while not done:
             clock.tick(90)
             check_battle = True
+            #input("Press enter to play a game")
 
             if not env.turn_started:
                 map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
@@ -41,11 +42,13 @@ if __name__ == "__main__":
             if env.current_player == 0:
                 if len(env.choice[0]) > 0:
                     move_time_start = time.time()
-                    epsilon = model.exploration_rate
-                    action = neuro_env_dqn.masked_predict(model, obs, env, epsilon=epsilon) #dqn
                     
-#                    action, _ = model.predict(obs, deterministic=True) #ppo                    
+                    epsilon = model.exploration_rate
+                    action = neuro_env_dqn_minmax.masked_predict(model, obs, env, epsilon=epsilon) #dqn
                     obs, reward, done, truncated, info = env.step(action)
+
+#                    action, _ = model.predict(obs, deterministic=True) #ppo                    
+#                    obs, reward, done, _ = env.step(action)
                     
                     move_time_end = time.time()
                     time_elapsed = move_time_end - move_time_start
@@ -66,6 +69,7 @@ if __name__ == "__main__":
                 env.turn_started = True
                 if len(env.choice[1]) > 1 or env.first_turn:
                     env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)
+                      
                 env.current_player = 0
                 env.turn_started = False
                 if env.first_turn:

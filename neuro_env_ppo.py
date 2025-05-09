@@ -64,7 +64,7 @@ class NeuroHexEnv(gym.Env):
         q=0
         r=0        
         tile_index, place_index, rotations = decode_action(action)
-        for i, hex in enumerate(env.choice[0]):
+        for i, hex in enumerate(self.choice[0]):
             if hex.skin.equals(self.all_player_tiles[tile_index]):
                 chosen_tile = i
                 break
@@ -347,7 +347,7 @@ if __name__ == "__main__":
     )
 
     results=[0,0,0]
-    total_timesteps = 500_000
+    total_timesteps = 800_000
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
     rollout_buffer = model.rollout_buffer
@@ -437,7 +437,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()
     env.reset()
-    model.save("neuroshima_ppo_model")
+    model.save("neuroshima_ppo_model_800000")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    

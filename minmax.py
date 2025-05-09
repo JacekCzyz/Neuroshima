@@ -206,9 +206,9 @@ def make_final_move(hex_map, move_val, choice, player, player1hp, player2hp):
         else:              
             for x in range(move_val.rotations[i]):
                 choice[player][move_val.choice_indexes[i]].skin.rotate(1)
+            if len(hex_map.free_hexes)==0:
+                player1hp, player2hp = map_utils.battle(hex_map, player1hp, player2hp)                
             for j in range(len(hex_map.free_hexes)):
-                if len(hex_map.free_hexes)==0:
-                    player1hp, player2hp = map_utils.battle(hex_map, player1hp, player2hp)
                 if hex_map.free_hexes[j].q == move_val.qs[i] and hex_map.free_hexes[j].r == move_val.rs[i]:
                     selected_skin = choice[player][move_val.choice_indexes[i]].skin
                     hex = hex_map.free_hexes[j]
