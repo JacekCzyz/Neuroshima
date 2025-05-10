@@ -382,7 +382,7 @@ if __name__ == "__main__":
             if done:
                 obs = env.reset()[0]
 
-            if step > model.learning_starts:
+            if step > model.learning_starts and step % model.target_update_interval == 0:
                 model.train(batch_size=model.batch_size, gradient_steps=1)
 
         if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
@@ -390,6 +390,37 @@ if __name__ == "__main__":
 
         if check_battle:
             env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                
+
+        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
+            final_reward = 0
+            if env.Player1hp > env.Player2hp:
+                final_reward = 10.0
+                results[0]+=1
+                f.write("\n"+"1won" + "\n")
+                
+            elif env.Player1hp < env.Player2hp:
+                final_reward = -10.0
+                results[1]+=1     
+                f.write("\n"+"2won" + "\n")
+                           
+            else:
+                results[2]+=1                
+                final_reward = -1.0
+                f.write("\n"+"tie" + "\n")
+
+            model.replay_buffer.add(
+                np.array([obs]),
+                np.array([obs]),       
+                np.array([0]),        
+                np.array([final_reward]),
+                np.array([True]),      
+                infos=[{"final": True}]
+            )            
+            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
+            obs = env.reset()[0]    
+            env.choice[0].clear()
+            env.choice[1].clear()                    
+            continue
 
         if env.current_player == 1:
             map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
@@ -435,6 +466,7 @@ if __name__ == "__main__":
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
 
             obs = env.reset()[0]
+        print(step)
             
     end_time = time.time()
 

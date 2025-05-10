@@ -352,7 +352,7 @@ if __name__ == "__main__":
     opponent_model = DQN.load("tmp_opponent_model", env=env)
     
     results=[0,0,0]
-    total_timesteps = 500_000 
+    total_timesteps = 2_500_000 
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
@@ -386,7 +386,7 @@ if __name__ == "__main__":
             if done:
                 obs = env.reset()[0]
 
-            if step % 10000 == 0:
+            if step > model.learning_starts and step % model.target_update_interval == 0:
                 model.save("tmp_opponent_model")
                 opponent_model = DQN.load("tmp_opponent_model", env=env)
                 model.train(batch_size=model.batch_size, gradient_steps=1)
@@ -485,7 +485,8 @@ if __name__ == "__main__":
             env.turn_started = False
             if env.first_turn:
                 env.first_turn=False
-        env.render()
+        print(step)
+        #env.render()
                     
             
     end_time = time.time()

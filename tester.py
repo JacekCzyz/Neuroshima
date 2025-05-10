@@ -16,7 +16,7 @@ from stable_baselines3.common.utils import obs_as_tensor
 
 if __name__ == "__main__":
     env = NeuroHexEnv_dqn()
-    model = DQN.load("neuroshima_dqn_model-500_000.zip")
+    model = DQN.load("neuroshima_dqn_selfplay_model.zip")
 #    env = NeuroHexEnv_ppo()
 #    model = MaskablePPO.load("neuroshima_ppo_model.zip")
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
         while not done:
             clock.tick(90)
             check_battle = True
-            #input("Press enter to play a game")
+            input("Press enter to play a game")
 
             if not env.turn_started:
                 map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
