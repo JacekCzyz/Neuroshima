@@ -172,7 +172,6 @@ class NeuroHexEnv(gym.Env):
         reward = map_value
         
         if self.Player1hp <= 0 or self.Player2hp <= 0:
-            done = True
             reward = 100 if self.Player1hp > self.Player2hp else -100
 
         return self._get_obs(), reward, done, False, {} #dict->info -> can return battle info
