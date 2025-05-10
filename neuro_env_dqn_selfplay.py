@@ -10,7 +10,6 @@ import skins
 from stable_baselines3 import DQN
 import minmax
 import time 
-import copy
 NUM_TILES = 31
 NUM_PLACEMENTS = 19
 NUM_ROTATIONS = 6
@@ -104,7 +103,7 @@ class NeuroHexEnv(gym.Env):
                                    
                     break 
         
-        if len(self.choice[self.current_player])==1:
+        if len(self.choice[self.current_player])==1 and self.current_player==0:
             self.choice[self.current_player].pop(0)
             self.current_player = 1
             self.turn_started = False 
@@ -360,6 +359,7 @@ if __name__ == "__main__":
 
     f = open("reward_time_selfplay_dqn.csv", "w")
     tile_counter=0
+    clock = pygame.time.Clock()    
     start_time = time.time()
     for step in range(total_timesteps*2):
         check_battle = True
@@ -401,18 +401,18 @@ if __name__ == "__main__":
         if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             final_reward = 0
             if env.Player1hp > env.Player2hp:
-                final_reward = 1.0
+                final_reward = 10.0
                 results[0]+=1
                 f.write("\n"+"1won" + "\n")
                 
             elif env.Player1hp < env.Player2hp:
-                final_reward = -1.0
+                final_reward = -10.0
                 results[1]+=1     
                 f.write("\n"+"2won" + "\n")
                            
             else:
                 results[2]+=1                
-                final_reward = 0.0
+                final_reward = -1.0
                 f.write("\n"+"tie" + "\n")
 
             model.replay_buffer.add(
@@ -424,7 +424,9 @@ if __name__ == "__main__":
                 infos=[{"final": True}]
             )            
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()[0]            
+            obs = env.reset()[0]    
+            env.choice[0].clear()
+            env.choice[1].clear()                    
             continue
 
 
@@ -432,8 +434,9 @@ if __name__ == "__main__":
             moves=2
             if env.first_turn:
                 moves=1
+            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False) 
             for i in range(moves):
-                map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
+                check_battle= True            
                 env.turn_started = True            
                 if len(env.choice[1])>1 or env.first_turn:
                     opponent_obs = env._get_obs()
@@ -464,8 +467,8 @@ if __name__ == "__main__":
                         f.write("\n"+"tie" + "\n")
 
                     model.replay_buffer.add(
-                        np.array([obs]),
-                        np.array([obs]),       
+                        np.array([opponent_obs]),
+                        np.array([opponent_obs]),       
                         np.array([0]),        
                         np.array([final_reward]),
                         np.array([True]),      
@@ -474,6 +477,11 @@ if __name__ == "__main__":
                     print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
 
                     obs = env.reset()[0]
+                    env.choice[0].clear()
+                    env.choice[1].clear()
+                    break
+            if len(env.choice[1])==1:
+                env.choice[1].pop(0)
             env.current_player = 0
             env.turn_started = False
             if env.first_turn:
