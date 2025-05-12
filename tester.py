@@ -16,7 +16,7 @@ from stable_baselines3.common.utils import obs_as_tensor
 
 if __name__ == "__main__":
     env = NeuroHexEnv_dqn()
-    model = DQN.load("neuroshima_dqn_selfplay_model.zip")
+    model = DQN.load("neuroshima_dqn_selfplay2_model.zip")
 #    env = NeuroHexEnv_ppo()
 #    model = MaskablePPO.load("neuroshima_ppo_model.zip")
 
@@ -24,9 +24,9 @@ if __name__ == "__main__":
     clock = pygame.time.Clock()
     results=[0,0,0]
     
-    test_result_file = open("test_results.csv", "w")
+    test_result_file = open("test_results_selfplay_vs_minmax.csv", "w")
     
-    test_result_file.write("neuroshima_dqn_model1-500_000.zip\n")
+    test_result_file.write("neuroshima_dqn_modelselfplay2_model.zip\n")
 
     for i in range(1000):
         done=False

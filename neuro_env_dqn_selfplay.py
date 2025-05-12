@@ -136,7 +136,7 @@ class NeuroHexEnv(gym.Env):
                 if hex.skin.hq:
                     map_value+=ally_hq_attacked
                 elif hex.q == q and hex.r == r:
-                    map_value+=placed_hex_attacked
+                    map_value+=placed_hex_attacked*2
                 else:
                     map_value+=ally_attacked
                     
@@ -161,9 +161,9 @@ class NeuroHexEnv(gym.Env):
             attacked_hexes.extend(map_utils.get_neighbor_lines(self.map, q, r))
         for hex in attacked_hexes:
             if hex.skin.hq:
-                map_value+=enemy_hq_attacked
+                map_value+=enemy_hq_attacked*2
             else:
-                map_value+=enemy_attacked
+                map_value+=enemy_attacked*1.5
                     
             if attacked_hexes.count(hex) >= hex.skin.lives and hex not in checked_state:     
                 map_value+=enemy_killed  
@@ -305,7 +305,7 @@ def test_game(model):
 
         if env.current_player == 0:
             if len(env.choice[0]) > 0:
-                action, _ = model.masked_predict(obs, deterministic=True)
+                action, _ = masked_predict(obs, deterministic=True)
                 new_obs, reward, done, truncated, info = env.step(action)
                 if done:
                     obs = env.reset()[0]
@@ -352,13 +352,12 @@ if __name__ == "__main__":
     opponent_model = DQN.load("tmp_opponent_model", env=env)
     
     results=[0,0,0]
-    total_timesteps = 2_500_000 
+    total_timesteps = 50_000_000 
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
-    f = open("reward_time_selfplay_dqn.csv", "w")
+    f = open("reward_time_selfplay_dqn2.csv", "w")
     tile_counter=0
-    clock = pygame.time.Clock()    
     start_time = time.time()
     for step in range(total_timesteps*2):
         check_battle = True
@@ -383,9 +382,6 @@ if __name__ == "__main__":
             )            
             obs = new_obs
 
-            if done:
-                obs = env.reset()[0]
-
             if step > model.learning_starts and step % model.target_update_interval == 0:
                 model.save("tmp_opponent_model")
                 opponent_model = DQN.load("tmp_opponent_model", env=env)
@@ -397,7 +393,7 @@ if __name__ == "__main__":
         if check_battle:
             env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                
 
-        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
+        if env.Player1hp <= 0 or env.Player2hp <= 0:
             final_reward = 0
             if env.Player1hp > env.Player2hp:
                 final_reward = 10.0
@@ -423,12 +419,10 @@ if __name__ == "__main__":
                 infos=[{"final": True}]
             )            
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()[0]    
-            env.choice[0].clear()
-            env.choice[1].clear()                    
+            obs = env.reset()[0]                        
             continue
 
-
+        finish=False
         if env.current_player == 1:
             moves=2
             if env.first_turn:
@@ -476,16 +470,16 @@ if __name__ == "__main__":
                     print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
 
                     obs = env.reset()[0]
-                    env.choice[0].clear()
-                    env.choice[1].clear()
+                    finish=True
                     break
-            if len(env.choice[1])==1:
-                env.choice[1].pop(0)
-            env.current_player = 0
-            env.turn_started = False
-            if env.first_turn:
-                env.first_turn=False
-        print(step)
+            if not finish:
+                if len(env.choice[1])==1:
+                    env.choice[1].pop(0)
+                env.current_player = 0
+                env.turn_started = False
+                if env.first_turn:
+                    env.first_turn=False
+        #print(step)
         #env.render()
                     
             
@@ -495,7 +489,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()            
     env.reset()
-    model.save("neuroshima_dqn_selfplay_model")
+    model.save("neuroshima_dqn_selfplay2_model")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
