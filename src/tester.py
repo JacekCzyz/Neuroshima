@@ -16,7 +16,7 @@ from stable_baselines3.common.utils import obs_as_tensor
 
 if __name__ == "__main__":
     env = NeuroHexEnv_dqn()
-    model = DQN.load("neuroshima_dqn_selfplay2_model.zip")
+    model = DQN.load("neuroshima_dqn_model_quick_test_minmax.zip")
 #    env = NeuroHexEnv_ppo()
 #    model = MaskablePPO.load("neuroshima_ppo_model.zip")
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     
     test_result_file = open("test_results_selfplay_vs_minmax.csv", "w")
     
-    test_result_file.write("neuroshima_dqn_modelselfplay2_model.zip\n")
+    test_result_file.write("neuroshima_dqn_model_1000000_minmax.zip\n")
 
     for i in range(1000):
         done=False
