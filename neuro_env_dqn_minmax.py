@@ -353,7 +353,7 @@ if __name__ == "__main__":
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
-    f = open("reward_time_dqn.csv", "w")
+    f = open("reward_time_dqn_new_minmax.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -474,7 +474,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()            
     env.reset()
-    model.save("neuroshima_dqn_model")
+    model.save("neuroshima_dqn_model_1000000_minmax")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
