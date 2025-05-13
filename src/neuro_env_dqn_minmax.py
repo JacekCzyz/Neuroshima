@@ -162,9 +162,9 @@ class NeuroHexEnv(gym.Env):
             attacked_hexes.extend(map_utils.get_neighbor_lines(self.map, q, r))
         for hex in attacked_hexes:
             if hex.skin.hq:
-                map_value+=enemy_hq_attacked
+                map_value+=enemy_hq_attacked*1.5
             else:
-                map_value+=enemy_attacked
+                map_value+=enemy_attacked*1.5
                     
             if attacked_hexes.count(hex) >= hex.skin.lives and hex not in checked_state:     
                 map_value+=enemy_killed  
@@ -357,6 +357,7 @@ if __name__ == "__main__":
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
+        $input("Press enter to play a game")
         check_battle = True
         if not env.turn_started:
             map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
@@ -382,7 +383,7 @@ if __name__ == "__main__":
             if done:
                 obs = env.reset()[0]
 
-            if step > model.learning_starts and step % model.target_update_interval == 0:
+            if step > model.learning_starts:
                 model.train(batch_size=model.batch_size, gradient_steps=1)
 
         if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
@@ -441,18 +442,18 @@ if __name__ == "__main__":
         if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             final_reward = 0
             if env.Player1hp > env.Player2hp:
-                final_reward = 1.0
+                final_reward = 10.0
                 results[0]+=1
                 f.write("\n"+"1won" + "\n")
                 
             elif env.Player1hp < env.Player2hp:
-                final_reward = -1.0
+                final_reward = -10.0
                 results[1]+=1     
                 f.write("\n"+"2won" + "\n")
                            
             else:
                 results[2]+=1                
-                final_reward = 0.0
+                final_reward = -1.0
                 f.write("\n"+"tie" + "\n")
 
             model.replay_buffer.add(
@@ -466,7 +467,7 @@ if __name__ == "__main__":
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
 
             obs = env.reset()[0]
-        print(step)
+        #print(step)
             
     end_time = time.time()
 
