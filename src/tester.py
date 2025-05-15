@@ -31,9 +31,9 @@ if __name__ == "__main__":
     for i in range(1000):
         done=False
         while not done:
-            clock.tick(90)
+            #clock.tick(90)
             check_battle = True
-            input("Press enter to play a game")
+            #input("Press enter to play a game")
 
             if not env.turn_started:
                 map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
@@ -81,7 +81,7 @@ if __name__ == "__main__":
             if check_battle:
                 env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
 
-            env.render()
+            #env.render()
             if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
                 final_reward = 0
                 if env.Player1hp > env.Player2hp:

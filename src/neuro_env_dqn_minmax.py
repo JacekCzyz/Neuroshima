@@ -162,9 +162,9 @@ class NeuroHexEnv(gym.Env):
             attacked_hexes.extend(map_utils.get_neighbor_lines(self.map, q, r))
         for hex in attacked_hexes:
             if hex.skin.hq:
-                map_value+=enemy_hq_attacked*1.5
+                map_value+=enemy_hq_attacked*1.2
             else:
-                map_value+=enemy_attacked*1.5
+                map_value+=enemy_attacked*1.2
                     
             if attacked_hexes.count(hex) >= hex.skin.lives and hex not in checked_state:     
                 map_value+=enemy_killed  
@@ -357,7 +357,7 @@ if __name__ == "__main__":
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
-        $input("Press enter to play a game")
+        #input("Press enter to play a game")
         check_battle = True
         if not env.turn_started:
             map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)

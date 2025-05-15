@@ -382,7 +382,7 @@ if __name__ == "__main__":
             )            
             obs = new_obs
 
-            if step > model.learning_starts and step % model.target_update_interval == 0:
+            if step > model.learning_starts:
                 model.save("tmp_opponent_model")
                 opponent_model = DQN.load("tmp_opponent_model", env=env)
                 model.train(batch_size=model.batch_size, gradient_steps=1)
