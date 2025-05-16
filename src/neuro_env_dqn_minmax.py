@@ -418,9 +418,7 @@ if __name__ == "__main__":
                 infos=[{"final": True}]
             )            
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()[0]    
-            env.choice[0].clear()
-            env.choice[1].clear()                    
+            obs = env.reset()[0]                    
             continue
 
         if env.current_player == 1:

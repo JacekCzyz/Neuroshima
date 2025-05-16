@@ -352,7 +352,7 @@ if __name__ == "__main__":
     opponent_model = DQN.load("tmp_opponent_model", env=env)
     
     results=[0,0,0]
-    total_timesteps = 50_000_000 
+    total_timesteps = 500_000 
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
@@ -479,7 +479,7 @@ if __name__ == "__main__":
                 env.turn_started = False
                 if env.first_turn:
                     env.first_turn=False
-        #print(step)
+        print(step)
         #env.render()
                     
             
@@ -489,7 +489,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()            
     env.reset()
-    model.save("neuroshima_dqn_selfplay2_model")
+    model.save("neuroshima_dqn_new_selfplay_model_vs_same")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    

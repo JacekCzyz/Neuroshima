@@ -16,7 +16,7 @@ from stable_baselines3.common.utils import obs_as_tensor
 
 if __name__ == "__main__":
     env = NeuroHexEnv_dqn()
-    model = DQN.load("neuroshima_dqn_model_1000000_minmax")
+    model = DQN.load("neuroshima_dqn_new_selfplay_model_vs_same")
 #    env = NeuroHexEnv_ppo()
 #    model = MaskablePPO.load("neuroshima_ppo_model.zip")
 
@@ -24,16 +24,16 @@ if __name__ == "__main__":
     clock = pygame.time.Clock()
     results=[0,0,0]
     
-    test_result_file = open("test_results_selfplay_vs_minmax.csv", "w")
+    test_result_file = open("test_results_selfplay_vs_self.csv", "w")
     
-    test_result_file.write("neuroshima_dqn_model_1000000_minmax.zip\n")
+    test_result_file.write("neuroshima_dqn_new_selfplay_model_vs_same.zip\n")
 
     for i in range(1000):
         done=False
         while not done:
-            #clock.tick(90)
+            clock.tick(90)
             check_battle = True
-            #input("Press enter to play a game")
+            input("Press enter to play a game")
 
             if not env.turn_started:
                 map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
@@ -81,7 +81,7 @@ if __name__ == "__main__":
             if check_battle:
                 env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
 
-            #env.render()
+            env.render()
             if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
                 final_reward = 0
                 if env.Player1hp > env.Player2hp:
