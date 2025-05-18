@@ -352,11 +352,11 @@ if __name__ == "__main__":
     opponent_model = DQN.load("tmp_opponent_model", env=env)
     
     results=[0,0,0]
-    total_timesteps = 500_000 
+    total_timesteps = 1_500_000 
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
-    f = open("reward_time_selfplay_dqn2.csv", "w")
+    f = open("reward_time_selfplay_1-500-000_dqn_same.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -489,7 +489,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()            
     env.reset()
-    model.save("neuroshima_dqn_new_selfplay_model_vs_same")
+    model.save("neuroshima_dqn_new_selfplay_1-500-000_model_vs_same")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    

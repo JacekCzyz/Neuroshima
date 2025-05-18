@@ -16,7 +16,7 @@ from stable_baselines3.common.utils import obs_as_tensor
 
 if __name__ == "__main__":
     env = NeuroHexEnv_dqn()
-    model = DQN.load("neuroshima_dqn_new_selfplay_model_vs_same")
+    model = DQN.load("neuroshima_dqn_new_selfplay_1-500-000_model_vs_same")
 #    env = NeuroHexEnv_ppo()
 #    model = MaskablePPO.load("neuroshima_ppo_model.zip")
 
