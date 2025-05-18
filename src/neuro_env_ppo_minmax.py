@@ -337,27 +337,45 @@ if __name__ == "__main__":
     policy_kwargs = dict(
         net_arch=[64, 64],
     )        
-    model = MaskablePPO(
+    # model = MaskablePPO(
+    #     "MlpPolicy",
+    #     masked_env,
+    #     verbose=1,
+    #     batch_size=64,
+    #     n_steps=2048,
+    #     policy_kwargs=policy_kwargs
+    # )
+    model = MaskablePPO( #bigger model
         "MlpPolicy",
         masked_env,
         verbose=1,
-        batch_size=64,
-        n_steps=2048,
-        policy_kwargs=policy_kwargs
+        batch_size=128,
+        n_steps=4096,
+        learning_rate=2.5e-4,
+        ent_coef=0.01,  
+        policy_kwargs=dict(net_arch=[128, 128])
     )
 
     results=[0,0,0]
-    total_timesteps = 800_000
+    total_timesteps = 1_000_000
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
-    f = open("reward_time_ppo.csv", "w")
+    f = open("reward_time_ppo_minmax_2-000-000_vs_same.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
         check_battle = True
         if rollout_buffer.full:
+            with torch.no_grad():
+                next_obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
+                next_value = model.policy.predict_values(next_obs_tensor)
+
+            rollout_buffer.compute_returns_and_advantage(
+                last_values=next_value,
+                dones=[done]
+            )            
             model.train()
             rollout_buffer.reset()        
         if not env.turn_started:
@@ -374,13 +392,19 @@ if __name__ == "__main__":
 
             new_obs, reward, done, info = env.step(action)
             f.write(str(reward) + ",")
-            
-
-                            
+                                        
             rollout_buffer.add(obs, np.asarray(action), np.asarray(reward), done, value, log_prob, action_masks=action_masks)
             obs = new_obs
 
             if rollout_buffer.full:
+                with torch.no_grad():
+                    next_obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
+                    next_value = model.policy.predict_values(next_obs_tensor)
+
+                rollout_buffer.compute_returns_and_advantage(
+                    last_values=next_value,
+                    dones=[done]
+                )                
                 model.train()
                 rollout_buffer.reset()
 
@@ -391,8 +415,31 @@ if __name__ == "__main__":
             check_battle = False
 
         if check_battle:
-            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                
+            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                        
 
+        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
+            final_reward = 0
+            if env.Player1hp > env.Player2hp:
+                final_reward = 10.0
+                results[0]+=1
+                f.write("\n"+"1won" + "\n")
+                
+            elif env.Player1hp < env.Player2hp:
+                final_reward = -10.0
+                results[1]+=1     
+                f.write("\n"+"2won" + "\n")
+                           
+            else:
+                results[2]+=1                
+                final_reward = -1.0
+                f.write("\n"+"tie" + "\n")
+
+            rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)
+        
+            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
+            obs = env.reset()[0]                    
+            continue
+        
         if env.current_player == 1:
             map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
             env.turn_started = True            
@@ -412,18 +459,18 @@ if __name__ == "__main__":
         if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             final_reward = 0
             if env.Player1hp > env.Player2hp:
-                final_reward = 1.0
+                final_reward = 10.0
                 results[0]+=1
                 f.write("\n"+"1won" + "\n")
                 
             elif env.Player1hp < env.Player2hp:
-                final_reward = -1.0
+                final_reward = -10.0
                 results[1]+=1     
                 f.write("\n"+"2won" + "\n")
                            
             else:
                 results[2]+=1                
-                final_reward = 0.0
+                final_reward = -1.0
                 f.write("\n"+"tie" + "\n")
                 
             
@@ -433,11 +480,12 @@ if __name__ == "__main__":
             obs = env.reset()[0]
     end_time = time.time()
 
+
     elapsed_time = end_time - start_time
     f.write("\n"+str(elapsed_time))
     f.close()
     env.reset()
-    model.save("neuroshima_ppo_model_800000")
+    model.save("neuroshima_ppo_model_2-000-000_minmax_vs_same")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    

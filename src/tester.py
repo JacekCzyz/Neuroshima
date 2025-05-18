@@ -1,7 +1,7 @@
 from neuro_env_dqn_minmax import NeuroHexEnv as NeuroHexEnv_dqn
-from neuro_env_ppo import NeuroHexEnv as NeuroHexEnv_ppo
+from neuro_env_ppo_minmax import NeuroHexEnv as NeuroHexEnv_ppo
 import neuro_env_dqn_minmax
-import neuro_env_ppo
+import neuro_env_ppo_minmax
 import pygame
 import map_utils
 import skins
