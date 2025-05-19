@@ -293,6 +293,7 @@ def decode_action(action_id):
     placement_index = remainder // NUM_ROTATIONS
     rotation = remainder % NUM_ROTATIONS
     return tile_index, placement_index, rotation    
+     
     
 def test_game(model):
     env = NeuroHexEnv()
@@ -359,7 +360,7 @@ if __name__ == "__main__":
     results=[0,0,0]
     total_timesteps = 1_000_000
     obs = env.reset()[0]
-    model._setup_learn(total_timesteps=total_timesteps)
+    model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
     f = open("reward_time_ppo_minmax_2-000-000_vs_same.csv", "w")
@@ -367,14 +368,14 @@ if __name__ == "__main__":
     start_time = time.time()
     for step in range(total_timesteps*2):
         check_battle = True
-        if rollout_buffer.full:
+        if rollout_buffer.full:            
             with torch.no_grad():
                 next_obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
                 next_value = model.policy.predict_values(next_obs_tensor)
 
             rollout_buffer.compute_returns_and_advantage(
                 last_values=next_value,
-                dones=[done]
+                dones=np.asarray([done], dtype=np.float32)
             )            
             model.train()
             rollout_buffer.reset()        
@@ -403,7 +404,7 @@ if __name__ == "__main__":
 
                 rollout_buffer.compute_returns_and_advantage(
                     last_values=next_value,
-                    dones=[done]
+                    dones=np.asarray([done], dtype=np.float32)
                 )                
                 model.train()
                 rollout_buffer.reset()
@@ -538,4 +539,5 @@ if __name__ == "__main__":
         if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
             obs = env.reset()
-        print(step)
+            done = True
+    env.close()
