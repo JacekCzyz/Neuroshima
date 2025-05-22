@@ -357,12 +357,12 @@ if __name__ == "__main__":
     )
 
     results=[0,0,0]
-    total_timesteps = 1_000_000
+    total_timesteps = 250_000
     obs = env.env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
-    f = open("reward_time_ppo_minmax_2-000-000_vs_same.csv", "w")
+    f = open("reward_time_ppo_minmax_1-000-000_vs_same_fixed.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -384,13 +384,20 @@ if __name__ == "__main__":
             env.env.turn_started = True
             
         if env.env.current_player == 0 and len(env.env.choice[0])>0:
+            if len(env.env.map.free_hexes)==0:
+                env.env.Player1hp, env.env.Player2hp = map_utils.battle(env.env.map, env.env.Player1hp, env.env.Player2hp)
             with torch.no_grad():
                 obs_tensor = obs_as_tensor(obs, model.policy.device)
                 obs_tensor = obs_tensor.unsqueeze(0)
                 action_masks = get_action_masks(env)
                 action, value, log_prob = model.policy.forward(obs_tensor, action_masks=action_masks)
                 action = action.item()
-
+            if not get_action_masks(env).any():
+                print("no action available")
+                if len(env.env.choice[0]) == 0:
+                    env.env.current_player = 1
+                    env.env.turn_started = False
+                continue
             new_obs, reward, done, info = env.env.step(action)
             f.write(str(reward) + ",")
                                         
@@ -440,8 +447,13 @@ if __name__ == "__main__":
                 obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
                 action_masks = get_action_masks(env)
                 _, value, log_prob = model.policy.forward(obs_tensor, action_masks=action_masks)
-            dones=np.asarray([True], dtype=np.float32)    
-            rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)
+            dones=np.asarray([True], dtype=np.float32)
+            if not get_action_masks(env).any():
+                print("no state to finish 1")
+                dummy_mask = np.ones(env.action_space.n, dtype=bool)
+                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
+            else:      
+                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)  
         
             print("Player1 won" if env.env.Player1hp > env.env.Player2hp else "Player2 won" if env.env.Player2hp > env.env.Player1hp else "TIE!!!")
             obs = env.env.reset()[0]                    
@@ -484,11 +496,16 @@ if __name__ == "__main__":
                 obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
                 action_masks = get_action_masks(env)
                 _, value, log_prob = model.policy.forward(obs_tensor, action_masks=action_masks)
-            dones=np.asarray([True], dtype=np.float32)    
-            rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)
-                   
+            dones=np.asarray([True], dtype=np.float32)
+            if not get_action_masks(env).any():
+                print("no state to finish 2")
+                dummy_mask = np.ones(env.action_space.n, dtype=bool)
+                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
+            else:      
+                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)                   
             print("Player1 won" if env.env.Player1hp > env.env.Player2hp else "Player2 won" if env.env.Player2hp > env.env.Player1hp else "TIE!!!")
             obs = env.env.reset()[0]
+        print(step)
     end_time = time.time()
 
 
@@ -496,7 +513,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()
     env.env.reset()
-    model.save("neuroshima_ppo_model_2-000-000_minmax_vs_same")
+    model.save("neuroshima_ppo_model_1-000-000_minmax_vs_same_fix")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
