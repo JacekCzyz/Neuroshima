@@ -357,7 +357,7 @@ if __name__ == "__main__":
     )
 
     results=[0,0,0]
-    total_timesteps = 250_000
+    total_timesteps = 500_000
     obs = env.env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
@@ -390,14 +390,19 @@ if __name__ == "__main__":
                 obs_tensor = obs_as_tensor(obs, model.policy.device)
                 obs_tensor = obs_tensor.unsqueeze(0)
                 action_masks = get_action_masks(env)
+                if not get_action_masks(env).any():
+                    print("⚠️ No valid actions for player")
+                    if len(env.env.choice[0]) == 0:
+                        env.env.current_player = 1
+                        env.env.turn_started = False
+                    elif len(env.env.map.free_hexes) == 0:
+                        env.env.Player1hp, env.env.Player2hp = map_utils.battle(env.env.map, env.env.Player1hp, env.env.Player2hp)
+                    else:
+                        print("⚠️ Choice not empty but no valid actions — check mask logic.")
+                    continue             
                 action, value, log_prob = model.policy.forward(obs_tensor, action_masks=action_masks)
                 action = action.item()
-            if not get_action_masks(env).any():
-                print("no action available")
-                if len(env.env.choice[0]) == 0:
-                    env.env.current_player = 1
-                    env.env.turn_started = False
-                continue
+
             new_obs, reward, done, info = env.env.step(action)
             f.write(str(reward) + ",")
                                         
