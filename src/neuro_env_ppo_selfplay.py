@@ -106,7 +106,7 @@ class NeuroHexEnv(gym.Env):
                                    
                     break 
         
-        if len(self.choice[self.current_player])==1 and self.current_player==0:
+        if len(self.choice[self.current_player])==1:
             self.choice[self.current_player].pop(0)
             self.current_player = 1
             self.turn_started = False 
@@ -139,7 +139,7 @@ class NeuroHexEnv(gym.Env):
                 if hex.skin.hq:
                     map_value+=ally_hq_attacked
                 elif hex.q == q and hex.r == r:
-                    map_value+=placed_hex_attacked*2
+                    map_value+=placed_hex_attacked
                 else:
                     map_value+=ally_attacked
                     
@@ -164,9 +164,9 @@ class NeuroHexEnv(gym.Env):
             attacked_hexes.extend(map_utils.get_neighbor_lines(self.map, q, r))
         for hex in attacked_hexes:
             if hex.skin.hq:
-                map_value+=enemy_hq_attacked*2
+                map_value+=enemy_hq_attacked
             else:
-                map_value+=enemy_attacked*1.5
+                map_value+=enemy_attacked
                     
             if attacked_hexes.count(hex) >= hex.skin.lives and hex not in checked_state:     
                 map_value+=enemy_killed  
@@ -175,9 +175,9 @@ class NeuroHexEnv(gym.Env):
         reward = map_value
         
         if self.Player1hp <= 0 or self.Player2hp <= 0:
-            reward = 100 if self.Player1hp > self.Player2hp else -100
-
-        return self._get_obs(), reward, done, False, {} #dict->info -> can return battle info
+            reward = 10 if self.Player1hp > self.Player2hp else -10
+        #here False = done, additional done = True added at the end of the game
+        return self._get_obs(), reward, False, {} #dict->info -> can return battle info
 
 
     def _get_obs(self):
@@ -236,7 +236,7 @@ class NeuroHexEnv(gym.Env):
 
     def _get_tile_type_index(self, tile):
         
-        for i, template in enumerate(env.env.all_player_tiles):
+        for i, template in enumerate(self.all_player_tiles[self.current_player]):
             if tile.skin.equals(template):
                 return i
         raise ValueError("Tile not found in template list")
@@ -263,6 +263,7 @@ class NeuroHexEnv(gym.Env):
                     mask[idx] = True
 
         return mask
+
 
 def mask_fn(env):
     return env.get_action_mask()        
@@ -357,12 +358,12 @@ if __name__ == "__main__":
     )
 
     results=[0,0,0]
-    total_timesteps = 200_000
+    total_timesteps = 1_000_000
     obs = env.env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
-    f = open("reward_time_ppo_selfplay_400-000_vs_same_fixed.csv", "w")
+    f = open("reward_time_ppo_selfplay_2-000-000_vs_same_fixed.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -395,7 +396,7 @@ if __name__ == "__main__":
                 obs_tensor = obs_tensor.unsqueeze(0)
                 action_masks = get_action_masks(env)
                 if not get_action_masks(env).any():
-                    print("⚠️ No valid actions for player")
+                    print("⚠️ No valid actions for player 1")
                     if len(env.env.choice[0]) == 0:
                         env.env.current_player = 1
                         env.env.turn_started = False
@@ -482,7 +483,7 @@ if __name__ == "__main__":
                         obs_tensor = obs_tensor.unsqueeze(0)
                         action_masks = get_action_masks(env)
                         if not get_action_masks(env).any():
-                            print("⚠️ No valid actions for player")
+                            print("⚠️ No valid actions for player 2")
                             if len(env.env.choice[0]) == 0:
                                 env.env.current_player = 1
                                 env.env.turn_started = False
@@ -529,7 +530,8 @@ if __name__ == "__main__":
                         rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
                     else:      
                         rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)  
-        
+                    print("Player1 won" if env.env.Player1hp > env.env.Player2hp else "Player2 won" if env.env.Player2hp > env.env.Player1hp else "TIE!!!")
+
                     obs = env.env.reset()[0]
                     finish=True
                     break
@@ -541,6 +543,7 @@ if __name__ == "__main__":
                 if env.env.first_turn:
                     env.env.first_turn=False
         print(step)
+        env.env.render()
     end_time = time.time()
 
 
@@ -548,7 +551,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()
     env.env.reset()
-    model.save("neuroshima_ppo_model_400-000_selfplay_vs_same_fix")
+    model.save("neuroshima_ppo_model_2-000-000_selfplay_vs_same_fix")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
