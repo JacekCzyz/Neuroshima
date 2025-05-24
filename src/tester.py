@@ -19,7 +19,7 @@ if __name__ == "__main__":
 #    model = DQN.load("neuroshima_dqn_new_selfplay_1-500-000_model_vs_same")
     masked_env = ActionMasker(NeuroHexEnv_ppo(), neuro_env_ppo_minmax.mask_fn)
     env = NeuroHexEnv_ppo()
-    model = MaskablePPO.load("neuroshima_ppo_model_2-000-000_minmax_vs_same.zip", env = masked_env)
+    model = MaskablePPO.load("neuroshima_ppo_model_400-000_minmax_vs_same_fix.zip", env = masked_env)
 
     obs = env.reset()[0]
     clock = pygame.time.Clock()
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     
     test_result_file = open("ppo_test_results_selfplay_vs_self.csv", "w")
     
-    test_result_file.write("neuroshima_ppo_new_minmax_model_vs_same.zip\n")
+    test_result_file.write("neuroshima_ppo_model_400-000_minmax_vs_same_fix.zip\n")
 
     for i in range(1000):
         done=False

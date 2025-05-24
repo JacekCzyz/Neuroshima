@@ -345,30 +345,29 @@ if __name__ == "__main__":
     #     n_steps=2048,
     #     policy_kwargs=policy_kwargs
     # )
-    model = MaskablePPO( #bigger model
-        "MlpPolicy",
-        env,
-        verbose=1,
-        batch_size=128,
-        n_steps=4096,
-        learning_rate=1e-4,
-        ent_coef=0.001,  
-        policy_kwargs=dict(net_arch=[128, 128])
-    )
-
+    # model = MaskablePPO( #bigger model
+    #     "MlpPolicy",
+    #     env,
+    #     verbose=1,
+    #     batch_size=128,
+    #     n_steps=4096,
+    #     learning_rate=1e-4,
+    #     ent_coef=0.001,  
+    #     policy_kwargs=dict(net_arch=[128, 128])
+    # )
+    model = MaskablePPO.load("neuroshima_ppo_model_400-000_minmax_vs_same_fix", env=env, device="cpu") #load model to learn
     results=[0,0,0]
-    total_timesteps = 500_000
+    total_timesteps = 200_000
     obs = env.env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
-    f = open("reward_time_ppo_minmax_1-000-000_vs_same_fixed.csv", "w")
+    f = open("reward_time_ppo_minmax_400:800-000_vs_same_fixed.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
         check_battle = True
         if rollout_buffer.full:            
-            print("fulll1")
             with torch.no_grad():
                 next_obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
                 next_value = model.policy.predict_values(next_obs_tensor)
@@ -391,14 +390,14 @@ if __name__ == "__main__":
                 obs_tensor = obs_tensor.unsqueeze(0)
                 action_masks = get_action_masks(env)
                 if not get_action_masks(env).any():
-                    print("⚠️ No valid actions for player")
+                    print("No valid actions for player")
                     if len(env.env.choice[0]) == 0:
                         env.env.current_player = 1
                         env.env.turn_started = False
                     elif len(env.env.map.free_hexes) == 0:
                         env.env.Player1hp, env.env.Player2hp = map_utils.battle(env.env.map, env.env.Player1hp, env.env.Player2hp)
                     else:
-                        print("⚠️ Choice not empty but no valid actions — check mask logic.")
+                        print("Choice not empty but no valid actions — check mask logic.")
                     continue             
                 action, value, log_prob = model.policy.forward(obs_tensor, action_masks=action_masks)
                 action = action.item()
@@ -410,7 +409,6 @@ if __name__ == "__main__":
             obs = new_obs
 
             if rollout_buffer.full:
-                print("fulll2")
 
                 with torch.no_grad():
                     next_obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
@@ -450,8 +448,8 @@ if __name__ == "__main__":
                 f.write("\n"+"tie" + "\n")
             with torch.no_grad():
                 obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
-                action_masks = get_action_masks(env)
-                _, value, log_prob = model.policy.forward(obs_tensor, action_masks=action_masks)
+                dummy_mask = np.ones(env.action_space.n, dtype=bool)
+                _, value, log_prob = model.policy.forward(obs_tensor, action_masks=dummy_mask)
             dones=np.asarray([True], dtype=np.float32)
             if not get_action_masks(env).any():
                 print("no state to finish 1")
@@ -461,7 +459,8 @@ if __name__ == "__main__":
                 rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)  
         
             print("Player1 won" if env.env.Player1hp > env.env.Player2hp else "Player2 won" if env.env.Player2hp > env.env.Player1hp else "TIE!!!")
-            obs = env.env.reset()[0]                    
+            obs = env.env.reset()[0]
+            print(step)               
             continue
         
         if env.env.current_player == 1:
@@ -499,18 +498,18 @@ if __name__ == "__main__":
             
             with torch.no_grad():
                 obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
-                action_masks = get_action_masks(env)
-                _, value, log_prob = model.policy.forward(obs_tensor, action_masks=action_masks)
+                dummy_mask = np.ones(env.action_space.n, dtype=bool)
+                _, value, log_prob = model.policy.forward(obs_tensor, action_masks=dummy_mask)
             dones=np.asarray([True], dtype=np.float32)
+            print(step)        
             if not get_action_masks(env).any():
                 print("no state to finish 2")
                 dummy_mask = np.ones(env.action_space.n, dtype=bool)
                 rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
             else:      
-                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)                   
+                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
             print("Player1 won" if env.env.Player1hp > env.env.Player2hp else "Player2 won" if env.env.Player2hp > env.env.Player1hp else "TIE!!!")
             obs = env.env.reset()[0]
-        print(step)
     end_time = time.time()
 
 
@@ -518,7 +517,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()
     env.env.reset()
-    model.save("neuroshima_ppo_model_1-000-000_minmax_vs_same_fix")
+    model.save("neuroshima_ppo_model_400:800-000_minmax_vs_same_fix")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
