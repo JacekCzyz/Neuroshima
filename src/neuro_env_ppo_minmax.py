@@ -236,7 +236,7 @@ class NeuroHexEnv(gym.Env):
 
     def _get_tile_type_index(self, tile):
         
-        for i, template in enumerate(env.env.all_player_tiles):
+        for i, template in enumerate(self.all_player_tiles):
             if tile.skin.equals(template):
                 return i
         raise ValueError("Tile not found in template list")
@@ -339,10 +339,12 @@ if __name__ == "__main__":
     )        
     # model = MaskablePPO(
     #     "MlpPolicy",
-    #     masked_env,
+    #     env,
     #     verbose=1,
     #     batch_size=64,
     #     n_steps=2048,
+    #     learning_rate=1e-4,
+    #     ent_coef=0.001,
     #     policy_kwargs=policy_kwargs
     # )
     # model = MaskablePPO( #bigger model
@@ -355,14 +357,14 @@ if __name__ == "__main__":
     #     ent_coef=0.001,  
     #     policy_kwargs=dict(net_arch=[128, 128])
     # )
-    model = MaskablePPO.load("neuroshima_ppo_model_400-000_minmax_vs_same_fix", env=env, device="cpu") #load model to learn
+    model = MaskablePPO.load("neuroshima_ppo_model_400-500-000_minmax_vs_same_fix", env=env, device="cpu") #load model to learn
     results=[0,0,0]
-    total_timesteps = 200_000
+    total_timesteps = 150_000
     obs = env.env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
-    f = open("reward_time_ppo_minmax_400:800-000_vs_same_fixed.csv", "w")
+    f = open("reward_time_ppo_minmax_500-800-000_vs_same_fixed.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -515,7 +517,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()
     env.env.reset()
-    model.save("neuroshima_ppo_model_400:800-000_minmax_vs_same_fix")
+    model.save("neuroshima_ppo_model_500-800-000_minmax_vs_same_fix")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
