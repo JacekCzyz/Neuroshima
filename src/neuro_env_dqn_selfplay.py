@@ -179,15 +179,19 @@ class NeuroHexEnv(gym.Env):
 
     def _get_obs(self):
         obs = np.zeros((19, 13), dtype=np.float32)  # 1 + 6 + 6
-
+        team1 = 1
+        team2 = 2
+        if self.current_player == 1:
+            team1 = 2
+            team2 = 1
         index = 0
         for hex_row in self.map.hex_row_list:
             for hex_tile in hex_row.hex_list:
                 # Column 0: team info
                 if hex_tile.skin.team == 1:
-                    obs[index, 0] = 1
+                    obs[index, 0] = team1
                 elif hex_tile.skin.team == 2:
-                    obs[index, 0] = 2
+                    obs[index, 0] = team2
                 if hex_tile.skin.hq:
                     obs[index, 0] += 0.5
 
