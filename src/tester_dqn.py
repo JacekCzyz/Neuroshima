@@ -28,8 +28,8 @@ if __name__ == "__main__":
     for i in range(1000):
         done=False
         while not done:
-            clock.tick(30)
-            #input("Press enter to play a game")
+            clock.tick(200)
+            input("Press enter to play a game")
             
             check_battle = True
             if not env.turn_started:

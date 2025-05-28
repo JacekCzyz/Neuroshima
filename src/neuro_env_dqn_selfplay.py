@@ -360,7 +360,7 @@ if __name__ == "__main__":
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
-    f = open("reward_time_selfplay_1-500-000_dqn_same.csv", "w")
+    f = open("reward_time_selfplay_1-500-000_dqn_same(fixed-observation).csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -423,7 +423,8 @@ if __name__ == "__main__":
                 infos=[{"final": True}]
             )            
             print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()[0]                        
+            obs = env.reset()[0]     
+            print(step)                   
             continue
 
         finish=False
@@ -472,6 +473,7 @@ if __name__ == "__main__":
                         infos=[{"final": True}]
                     )            
                     print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
+                    print(step)
 
                     obs = env.reset()[0]
                     finish=True
@@ -483,7 +485,6 @@ if __name__ == "__main__":
                 env.turn_started = False
                 if env.first_turn:
                     env.first_turn=False
-        print(step)
         #env.render()
                     
             
@@ -493,7 +494,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()            
     env.reset()
-    model.save("neuroshima_dqn_new_selfplay_1-500-000_model_vs_same")
+    model.save("neuroshima_dqn_new_selfplay_1-500-000_model_vs_same(fixed-observation)")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
