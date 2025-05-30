@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import csv
 import numpy as np
 
-filename = 'reward_time_selfplay_1-500-000_dqn_same(fixed-observation).csv'
+filename = 'reward_time_dqn_new_minmax_vs_same_500_000.csv'
 
 average_rewards = []
 game_results = []
