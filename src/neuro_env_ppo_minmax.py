@@ -293,43 +293,7 @@ def decode_action(action_id):
     rotation = remainder % NUM_ROTATIONS
     return tile_index, placement_index, rotation    
      
-    
-def test_game(model):
-    env = NeuroHexEnv()
-    obs = env.reset()[0]
-    done = False
-    clock = pygame.time.Clock()
-
-    while not done:
-        clock.tick(90)
-
-        if not env.turn_started:
-            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
-            env.turn_started = True
-
-        if env.current_player == 0:
-            if len(env.choice[0]) > 0:
-                action, _ = model.predict(obs, deterministic=True)
-                obs, reward, done, _ = env.step(action)
-                if done:
-                    obs = env.reset()[0]
-
-        if env.current_player == 1:
-            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
-            env.turn_started = True
-            if len(env.choice[1]) > 1 or env.first_turn:
-                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)
-            env.current_player = 0
-            env.turn_started = False
-            if env.first_turn:
-                env.first_turn = False
-
-        env.render()
-        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
-            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()[0]
-            done = True    
-    
+     
 if __name__ == "__main__":
     env = NeuroHexEnv()
     env = ActionMasker(env, mask_fn)
@@ -337,16 +301,16 @@ if __name__ == "__main__":
     policy_kwargs = dict(
         net_arch=[64, 64],
     )        
-    # model = MaskablePPO(
-    #     "MlpPolicy",
-    #     env,
-    #     verbose=1,
-    #     batch_size=64,
-    #     n_steps=2048,
-    #     learning_rate=1e-4,
-    #     ent_coef=0.001,
-    #     policy_kwargs=policy_kwargs
-    # )
+    model = MaskablePPO(#  try this on!!
+        "MlpPolicy",
+        env,
+        verbose=1,
+        batch_size=32,
+        n_steps=2048,
+        learning_rate=1e-4,
+        ent_coef=0.001,
+        policy_kwargs=policy_kwargs
+    )
     # model = MaskablePPO( #bigger model
     #     "MlpPolicy",
     #     env,
@@ -357,14 +321,14 @@ if __name__ == "__main__":
     #     ent_coef=0.001,  
     #     policy_kwargs=dict(net_arch=[128, 128])
     # )
-    model = MaskablePPO.load("neuroshima_ppo_model_400-500-000_minmax_vs_same_fix", env=env, device="cpu") #load model to learn
+    # model = MaskablePPO.load("neuroshima_ppo_model_400-000_minmax_vs_hard", env=env, device="cpu") #load model to learn
     results=[0,0,0]
-    total_timesteps = 150_000
+    total_timesteps = 50_000
     obs = env.env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
-    f = open("reward_time_ppo_minmax_500-800-000_vs_same_fixed.csv", "w")
+    f = open("reward_time_ppo_minmax_100-000_vs_hard.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -517,58 +481,9 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()
     env.env.reset()
-    model.save("neuroshima_ppo_model_500-800-000_minmax_vs_same_fix")
-    
+    model.save("neuroshima_ppo_model_100-000_minmax_vs_hard")
+    env.env.close()
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
     print("ties" +str(results[2]))
-    input("Press enter to play a game")
     
-    done=False
-    clock = pygame.time.Clock()
-    while not done:
-        clock.tick(90)
- 
-        check_battle = True
-        if not env.turn_started:
-            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
-            env.turn_started = True
- 
-        if env.current_player == 0:
-            if len(env.choice[0])>1 or env.first_turn:
-                action, _ = model.predict(obs, deterministic=True)
- 
-                obs, reward, done, _ = env.step(action)
- 
-                if done:
-                    obs = env.reset()
- 
- 
-        if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
-            check_battle = False
- 
-        if check_battle:
-            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)                
- 
-        if env.current_player == 1:
-            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
-            env.turn_started = True            
-            if len(env.choice[1])>1 or env.first_turn:
-                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)  
-            env.current_player = 0
-            env.turn_started = False
-            if env.first_turn:
-                env.first_turn=False
- 
-        if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
-            check_battle = False
- 
-        if check_battle:
-            env.Player1hp, env.Player2hp = map_utils.battle(env.map, env.Player1hp, env.Player2hp)
- 
-        env.render()
-        if env.Player1hp <= 0 or env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
-            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()
-            done = True
-    env.close()

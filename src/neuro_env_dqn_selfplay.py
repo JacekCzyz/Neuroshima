@@ -294,44 +294,6 @@ def decode_action(action_id):
     rotation = remainder % NUM_ROTATIONS
     return tile_index, placement_index, rotation    
     
-def test_game(model):
-    env = NeuroHexEnv()
-    obs = env.reset()[0]
-    done = False
-    clock = pygame.time.Clock()
-
-    while not done:
-        clock.tick(90)
-
-        if not env.turn_started:
-            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
-            env.turn_started = True
-
-        if env.current_player == 0:
-            if len(env.choice[0]) > 0:
-                action, _ = masked_predict(obs, deterministic=True)
-                new_obs, reward, done, truncated, info = env.step(action)
-                if done:
-                    obs = env.reset()[0]
-
-        if env.current_player == 1:
-            map_utils.fill_choice(env.choice, env.current_player, env.first_turn, False)
-            env.turn_started = True
-            if len(env.choice[1]) > 1 or env.first_turn:
-                env.Player1hp, env.Player2hp = minmax.min_max(env.map, env.choice, 1, env.Player1hp, env.Player2hp, 0)
-            env.current_player = 0
-            env.turn_started = False
-            if env.first_turn:
-                env.first_turn = False
-
-        env.render()
-        if env.Player1hp <= 0 or env.Player2hp <= 0 or \
-           (len(skins.team_tiles[0]) <= 1 and len(skins.team_tiles[1]) <= 1):
-            print("Player1 won" if env.Player1hp > env.Player2hp else "Player2 won" if env.Player2hp > env.Player1hp else "TIE!!!")
-            obs = env.reset()[0]
-            done = True    
-
-
 if __name__ == "__main__":
     env = NeuroHexEnv()
     policy_kwargs = dict(
@@ -499,6 +461,4 @@ if __name__ == "__main__":
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
     print("ties" +str(results[2]))
-    input("Press enter to play a game")
-
-    test_game(model)
+    env.env.close()
