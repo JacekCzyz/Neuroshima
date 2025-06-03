@@ -301,16 +301,16 @@ if __name__ == "__main__":
     policy_kwargs = dict(
         net_arch=[64, 64],
     )        
-    model = MaskablePPO(#  try this on!!
-        "MlpPolicy",
-        env,
-        verbose=1,
-        batch_size=32,
-        n_steps=2048,
-        learning_rate=1e-4,
-        ent_coef=0.001,
-        policy_kwargs=policy_kwargs
-    )
+    # model = MaskablePPO(#  try this on!!
+    #     "MlpPolicy",
+    #     env,
+    #     verbose=1,
+    #     batch_size=32,
+    #     n_steps=2048,
+    #     learning_rate=1e-5,
+    #     ent_coef=0.001,
+    #     policy_kwargs=policy_kwargs
+    # )
     # model = MaskablePPO( #bigger model
     #     "MlpPolicy",
     #     env,
@@ -321,29 +321,38 @@ if __name__ == "__main__":
     #     ent_coef=0.001,  
     #     policy_kwargs=dict(net_arch=[128, 128])
     # )
-    # model = MaskablePPO.load("neuroshima_ppo_model_400-000_minmax_vs_hard", env=env, device="cpu") #load model to learn
+    model = MaskablePPO.load("neuroshima_ppo_model_small_500-000_minmax_vs_hard", env=env, device="cpu") #load model to learn
     results=[0,0,0]
-    total_timesteps = 50_000
+    total_timesteps = 100_000
     obs = env.env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
-    f = open("reward_time_ppo_minmax_100-000_vs_hard.csv", "w")
+    f = open("reward_time_ppo_small_minmax_500-600-000_vs_hard.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
         check_battle = True
+        
         if rollout_buffer.full:            
             with torch.no_grad():
                 next_obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
                 next_value = model.policy.predict_values(next_obs_tensor)
-
+                      
             rollout_buffer.compute_returns_and_advantage(
                 last_values=next_value,
                 dones=np.asarray([False], dtype=np.float32)
             )            
+            if hasattr(rollout_buffer, "action_masks") and rollout_buffer.action_masks is not None:
+                for i, mask in enumerate(rollout_buffer.action_masks):
+                    if not np.any(mask):
+                        print(f"[!] Invalid mask at buffer index {i}, fixing...")
+                        # Randomly activate one action
+                        rand_idx = np.random.randint(mask.shape[0])
+                        mask[rand_idx] = True            
             model.train()
-            rollout_buffer.reset()        
+            rollout_buffer.reset()     
+               
         if not env.env.turn_started:
             map_utils.fill_choice(env.env.choice, env.env.current_player, env.env.first_turn, False)
             env.env.turn_started = True
@@ -351,6 +360,7 @@ if __name__ == "__main__":
         if env.env.current_player == 0 and len(env.env.choice[0])>0:
             if len(env.env.map.free_hexes)==0:
                 env.env.Player1hp, env.env.Player2hp = map_utils.battle(env.env.map, env.env.Player1hp, env.env.Player2hp)
+            
             with torch.no_grad():
                 obs_tensor = obs_as_tensor(obs, model.policy.device)
                 obs_tensor = obs_tensor.unsqueeze(0)
@@ -375,18 +385,23 @@ if __name__ == "__main__":
             obs = new_obs
 
             if rollout_buffer.full:
-
                 with torch.no_grad():
                     next_obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
                     next_value = model.policy.predict_values(next_obs_tensor)
 
                 rollout_buffer.compute_returns_and_advantage(
                     last_values=next_value,
-                    dones=np.asarray([False], dtype=np.float32) #done = True only at the end of the game
-                )                
+                    dones=np.asarray([False], dtype=np.float32)
+                )             
+                if hasattr(rollout_buffer, "action_masks") and rollout_buffer.action_masks is not None:
+                    for i, mask in enumerate(rollout_buffer.action_masks):
+                        if not np.any(mask):
+                            print(f"[!] Invalid mask at buffer index {i}, fixing...")
+                            # Randomly activate one action
+                            rand_idx = np.random.randint(mask.shape[0])
+                            mask[rand_idx] = True     
                 model.train()
                 rollout_buffer.reset()
-
 
         if any(hex.skin.team == 0 for row in env.env.map.hex_row_list for hex in row.hex_list):
             check_battle = False
@@ -410,18 +425,15 @@ if __name__ == "__main__":
                 results[2]+=1                
                 final_reward = -1.0
                 f.write("\n"+"tie" + "\n")
+                
             with torch.no_grad():
                 obs_tensor = obs_as_tensor(obs, model.policy.device).unsqueeze(0)
                 dummy_mask = np.ones(env.action_space.n, dtype=bool)
                 _, value, log_prob = model.policy.forward(obs_tensor, action_masks=dummy_mask)
             dones=np.asarray([True], dtype=np.float32)
-            if not get_action_masks(env).any():
-                print("no state to finish 1")
-                dummy_mask = np.ones(env.action_space.n, dtype=bool)
-                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
-            else:      
-                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=action_masks)  
-        
+            dummy_mask = np.ones(env.action_space.n, dtype=bool)
+            rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
+
             print("Player1 won" if env.env.Player1hp > env.env.Player2hp else "Player2 won" if env.env.Player2hp > env.env.Player1hp else "TIE!!!")
             obs = env.env.reset()[0]
             print(step)               
@@ -442,7 +454,7 @@ if __name__ == "__main__":
 
         if check_battle:
             env.env.Player1hp, env.env.Player2hp = map_utils.battle(env.env.map, env.env.Player1hp, env.env.Player2hp)
-        #env.render()
+
         if env.env.Player1hp <= 0 or env.env.Player2hp <= 0 or (len(skins.team_tiles[0])<=1 and len(skins.team_tiles[1])<=1):
             final_reward = 0
             if env.env.Player1hp > env.env.Player2hp:
@@ -465,23 +477,19 @@ if __name__ == "__main__":
                 dummy_mask = np.ones(env.action_space.n, dtype=bool)
                 _, value, log_prob = model.policy.forward(obs_tensor, action_masks=dummy_mask)
             dones=np.asarray([True], dtype=np.float32)
-            print(step)        
-            if not get_action_masks(env).any():
-                print("no state to finish 2")
-                dummy_mask = np.ones(env.action_space.n, dtype=bool)
-                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
-            else:      
-                rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
+            print(step)
+            dummy_mask = np.ones(env.action_space.n, dtype=bool)
+            rollout_buffer.add(obs, np.asarray(0), np.asarray(final_reward), True, value, log_prob, action_masks=dummy_mask)                   
+            
             print("Player1 won" if env.env.Player1hp > env.env.Player2hp else "Player2 won" if env.env.Player2hp > env.env.Player1hp else "TIE!!!")
             obs = env.env.reset()[0]
     end_time = time.time()
-
 
     elapsed_time = end_time - start_time
     f.write("\n"+str(elapsed_time))
     f.close()
     env.env.reset()
-    model.save("neuroshima_ppo_model_100-000_minmax_vs_hard")
+    model.save("neuroshima_ppo_model_small_500-600-000_minmax_vs_hard")
     env.env.close()
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
