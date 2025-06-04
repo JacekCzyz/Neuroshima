@@ -12,7 +12,22 @@ from sb3_contrib import MaskablePPO
 from sb3_contrib.common.maskable.utils import get_action_masks
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.utils import obs_as_tensor
+from sb3_contrib.ppo_mask.policies import MaskableActorCriticPolicy
 import time 
+
+from sb3_contrib.common.maskable.distributions import MaskableCategorical
+
+def patched_apply_masking(self, mask):
+    logits = self.logits.clone()
+    logits[~mask] = float('-inf')
+
+    if hasattr(self, 'probs'):
+        del self.probs
+
+    super(MaskableCategorical, self).__init__(logits=logits)
+
+MaskableCategorical.apply_masking = patched_apply_masking
+
 NUM_TILES = 31
 NUM_PLACEMENTS = 19
 NUM_ROTATIONS = 6
@@ -293,6 +308,7 @@ def decode_action(action_id):
     rotation = remainder % NUM_ROTATIONS
     return tile_index, placement_index, rotation    
      
+      
      
 if __name__ == "__main__":
     env = NeuroHexEnv()
@@ -311,24 +327,24 @@ if __name__ == "__main__":
     #     ent_coef=0.001,
     #     policy_kwargs=policy_kwargs
     # )
-    # model = MaskablePPO( #bigger model
-    #     "MlpPolicy",
-    #     env,
-    #     verbose=1,
-    #     batch_size=128,
-    #     n_steps=4096,
-    #     learning_rate=1e-4,
-    #     ent_coef=0.001,  
-    #     policy_kwargs=dict(net_arch=[128, 128])
-    # )
-    model = MaskablePPO.load("neuroshima_ppo_model_small_500-000_minmax_vs_hard", env=env, device="cpu") #load model to learn
+    model = MaskablePPO( #bigger model
+        "MlpPolicy",
+        env,
+        verbose=1,
+        batch_size=128,
+        n_steps=4096,
+        learning_rate=1e-4,
+        ent_coef=0.001,  
+        policy_kwargs=dict(net_arch=[128, 128])
+    )
+    #model = MaskablePPO.load("neuroshima_ppo_model_small_500-000_minmax_vs_hard", env=env, device="cpu") #load model to learn
     results=[0,0,0]
-    total_timesteps = 100_000
+    total_timesteps = 400_000
     obs = env.env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps*2)
     rollout_buffer = model.rollout_buffer
     rollout_buffer.reset()
-    f = open("reward_time_ppo_small_minmax_500-600-000_vs_hard.csv", "w")
+    f = open("reward_time_ppo_big_safe_minmax_800-000_vs_hard.csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -489,7 +505,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()
     env.env.reset()
-    model.save("neuroshima_ppo_model_small_500-600-000_minmax_vs_hard")
+    model.save("neuroshima_ppo_model_big_safe_800-000_minmax_vs_hard")
     env.env.close()
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
