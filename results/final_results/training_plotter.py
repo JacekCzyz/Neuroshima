@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import csv
 import numpy as np
 
-filename = 'reward_time_ppo_small_minmax_500-000_vs_hard.csv'
+filename = 'reward_time_ppo_big_safe_minmax_800-1000-000_vs_hard.csv'
 
 average_rewards = []
 game_results = []
