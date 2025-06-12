@@ -314,15 +314,16 @@ if __name__ == "__main__":
     )
     
     model.save("tmp_opponent_model")
+    model.save("tmp_opponent_model1")
 
     opponent_model = DQN.load("tmp_opponent_model", env=env)
-    
+    model_file = 1
     results=[0,0,0]
     total_timesteps = 1_500_000 
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
-    f = open("reward_time_selfplay_1-500-000_dqn_hard(fixed-observation).csv", "w")
+    f = open("reward_time_selfplay_1-500-000_dqn_sam(additional_observation).csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -332,6 +333,7 @@ if __name__ == "__main__":
             env.turn_started = True
             
         if env.current_player == 0 and len(env.choice[0])>0:
+            obs = env._get_obs()
             epsilon = model.exploration_rate
             action = masked_predict(model, obs, env, epsilon=epsilon)
             
@@ -349,8 +351,14 @@ if __name__ == "__main__":
             obs = new_obs
 
             if step > model.learning_starts:
-                model.save("tmp_opponent_model")
-                opponent_model = DQN.load("tmp_opponent_model", env=env)
+                if model_file==1:
+                    model.save("tmp_opponent_model")
+                    opponent_model = DQN.load("tmp_opponent_model1", env=env)
+                    model_file = 2
+                elif model_file==2:
+                    model.save("tmp_opponent_model1")
+                    opponent_model = DQN.load("tmp_opponent_model", env=env)
+                    model_file = 1
                 model.train(batch_size=model.batch_size, gradient_steps=1)
 
         if any(hex.skin.team == 0 for row in env.map.hex_row_list for hex in row.hex_list):
@@ -456,7 +464,7 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()            
     env.reset()
-    model.save("neuroshima_dqn_new_selfplay_1-500-000_model_vs_hard(fixed-observation)")
+    model.save("neuroshima_dqn_new_selfplay_1-500-000_model_vs_sam(additional_observation)")
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    

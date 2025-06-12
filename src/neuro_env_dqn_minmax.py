@@ -316,7 +316,7 @@ if __name__ == "__main__":
     obs = env.reset()[0]
     model._setup_learn(total_timesteps=total_timesteps)
 
-    f = open("reward_time_dqn_new_minmax_vs_har_500_000.csv", "w")
+    f = open("reward_time_dqn_new_minmax_vs_hard_500_000(additional_observation).csv", "w")
     tile_counter=0
     start_time = time.time()
     for step in range(total_timesteps*2):
@@ -327,6 +327,7 @@ if __name__ == "__main__":
             env.turn_started = True
             
         if env.current_player == 0 and len(env.choice[0])>0:
+            obs = env._get_obs()
             epsilon = model.exploration_rate
             action = masked_predict(model, obs, env, epsilon=epsilon)
             
@@ -436,8 +437,8 @@ if __name__ == "__main__":
     f.write("\n"+str(elapsed_time))
     f.close()            
     env.reset()
-    model.save("neuroshima_dqn_model_1000000_minmax_vs_hard")
-    env.env.close()
+    model.save("neuroshima_dqn_model_1000000_minmax_vs_hard(additional_observation)")
+    env.close()
     
     print("wins" +str(results[0]))
     print("losses" +str(results[1]))    
